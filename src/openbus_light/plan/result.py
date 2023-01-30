@@ -6,14 +6,21 @@ from functools import cached_property
 from types import MappingProxyType
 from typing import NamedTuple, Optional
 
-from ..model import BusLine
+from ..model import BusLine, Direction
 from .network import Activity
+
+
+class PassengersPerLink(NamedTuple):
+    start: str
+    end: str
+    pax: float
 
 
 class LPPSolution(NamedTuple):
     weighted_travel_time: MappingProxyType[Activity, timedelta]
     used_vehicles: float
     active_lines: tuple[BusLine, ...]
+    passengers_per_link: MappingProxyType[BusLine, MappingProxyType[Direction, tuple[PassengersPerLink, ...]]]
 
 
 @dataclass(frozen=True)
@@ -38,5 +45,6 @@ class LPPResult:
     def success(self) -> bool:
         return self._solution is not None
 
+    @property
     def failed(self) -> bool:
         return not self.success

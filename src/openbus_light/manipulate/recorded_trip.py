@@ -3,7 +3,7 @@ from collections import defaultdict
 from dataclasses import replace
 from enum import IntEnum
 from itertools import chain
-from typing import Any, Collection, Mapping, Sequence
+from typing import Any, Collection, Iterable, Mapping, Optional, Sequence
 
 import pandas as pd
 
@@ -11,7 +11,7 @@ from ..model import BusLine, Direction, RecordedTrip
 from ..utils import pairwise, skip_one_line_in_file
 
 
-def enrich_lines_with_measurements(path: str, lines: Collection[BusLine]) -> tuple[BusLine, ...]:
+def enrich_lines_with_recorded_trips(path: str, lines: Collection[BusLine]) -> tuple[BusLine, ...]:
     with open(path, encoding="utf-8", mode="r") as file_handle:
         skip_one_line_in_file(file_handle)
         raw_measurements = pd.read_csv(file_handle, sep=";", encoding="utf-8", dtype=str)
@@ -21,8 +21,19 @@ def enrich_lines_with_measurements(path: str, lines: Collection[BusLine]) -> tup
     for line_id, grouped_measurements in raw_measurements.groupby("LINIEN_TEXT"):
         if line_id not in lines_by_number:
             continue
-        enriched_lines.append(_add_recorded_trips_to_line(lines_by_number[line_id], grouped_measurements))
+        converted_group = _convert_these_columns_to_datetime(
+            grouped_measurements, ("ANKUNFTSZEIT", "ABFAHRTSZEIT", "AN_PROGNOSE", "AB_PROGNOSE"), "%d.%m.%Y %H:%M"
+        )
+        enriched_lines.append(_add_recorded_trips_to_line(lines_by_number[line_id], converted_group))
     return tuple(enriched_lines)
+
+
+def _convert_these_columns_to_datetime(
+    data_frame: pd.DataFrame, columns: Iterable[str], datetime_format: Optional[str]
+) -> pd.DataFrame:
+    for column in columns:
+        data_frame[column] = pd.to_datetime(data_frame[column], errors="coerce", format=datetime_format)
+    return data_frame
 
 
 def __is_the_start_of_a_run(row_as_tuple: tuple[Any, ...]) -> bool:
@@ -58,6 +69,7 @@ def _extract_recorded_trips(
     line_nr: int, measurements: pd.DataFrame, pairs: Collection[tuple[int, int]]
 ) -> dict[tuple[str, str], tuple[RecordedTrip, ...]]:
     recorded_trips_by_start_end = defaultdict(list)
+
     for begin, end in pairs:
         recorded_trip = RecordedTrip(
             number=line_nr,
@@ -66,16 +78,14 @@ def _extract_recorded_trips(
             end=measurements.iloc[end].HALTESTELLEN_NAME,
             stop_count=end - begin + 1,
             record=pd.DataFrame(
-                [
-                    dict(
-                        station_name=row.HALTESTELLEN_NAME,
-                        arrival_planned=row.ANKUNFTSZEIT,
-                        arrival_observed=row.AN_PROGNOSE,
-                        departure_planned=row.ABFAHRTSZEIT,
-                        departure_observed=row.AB_PROGNOSE,
-                    )
-                    for row in measurements[begin : end + 1].itertuples(index=False)
-                ]
+                {
+                    "station_name": row.HALTESTELLEN_NAME,
+                    "arrival_planned": row.ANKUNFTSZEIT,
+                    "arrival_observed": row.AN_PROGNOSE,
+                    "departure_planned": row.ABFAHRTSZEIT,
+                    "departure_observed": row.AB_PROGNOSE,
+                }
+                for row in measurements[begin : end + 1].itertuples(index=False)
             ),
         )
         recorded_trips_by_start_end[(recorded_trip.start, recorded_trip.end)].append(recorded_trip)

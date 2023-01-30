@@ -1,5 +1,6 @@
 import warnings
 from datetime import timedelta
+from typing import Mapping
 
 from constants import (
     GPS_BOX,
@@ -10,6 +11,7 @@ from constants import (
     PATH_TO_STATIONS,
     WINTERTHUR_IMAGE,
 )
+from plots import plot_available_vs_used_capacity_per_link
 
 from openbus_light.manipulate import ScenarioPaths, load_scenario
 from openbus_light.model import PlanningScenario
@@ -43,17 +45,17 @@ def configure_parameters() -> LinePlanningParameters:
         dwell_time_at_terminal=timedelta(seconds=5 * 60),
         vehicle_cost_per_period=0,
         vehicle_capacity=60,
-        permitted_frequencies=(1, 2, 3, 4, 5, 6, 8, 10),
+        permitted_frequencies=(4, 5, 6, 8, 10),
         demand_association_radius=500,
         walking_speed_between_stations=0.6,
         maximal_walking_distance=300,
         demand_scaling=0.1,
-        maximal_number_of_vehicles=60,
+        maximal_number_of_vehicles=41,
     )
 
 
 def update_frequencies(
-    scenario: PlanningScenario, new_frequencies_by_line_nr: dict[int, tuple[int, ...]]
+    scenario: PlanningScenario, new_frequencies_by_line_nr: Mapping[int, tuple[int, ...]]
 ) -> PlanningScenario:
     updated_lines = []
     for line in scenario.bus_lines:
@@ -61,7 +63,7 @@ def update_frequencies(
     return scenario._replace(bus_lines=tuple(updated_lines))
 
 
-def update_capacities(scenario: PlanningScenario, new_capacities_by_line_nr: dict[int, int]) -> PlanningScenario:
+def update_capacities(scenario: PlanningScenario, new_capacities_by_line_nr: Mapping[int, int]) -> PlanningScenario:
     updated_lines = []
     for line in scenario.bus_lines:
         updated_lines.append(line._replace(regular_capacity=new_capacities_by_line_nr[line.number]))
@@ -69,20 +71,10 @@ def update_capacities(scenario: PlanningScenario, new_capacities_by_line_nr: dic
 
 
 def update_scenario(baseline_scenario: PlanningScenario) -> PlanningScenario:
-    new_frequencies_by_line_id: dict[int, tuple[int, ...]] = {
-        1: (6,),
-        2: (6,),
-        3: (6,),
-        4: (6,),
-        5: (6,),
-        7: (5,),
-        9: (8,),
-        10: (6,),
-    }
+    new_frequencies_by_line_id = {1: (6,), 2: (6,), 3: (6,), 4: (6,), 5: (6,), 7: (5,), 9: (8,), 10: (6,)}
     new_capacities_by_line_id = {1: 100, 2: 100, 3: 65, 4: 65, 5: 65, 7: 65, 9: 40, 10: 40}
-    updated_scenario = update_frequencies(baseline_scenario, new_frequencies_by_line_id)
-    updated_scenario = update_capacities(updated_scenario, new_capacities_by_line_id)
-    return updated_scenario
+    updated_scenario = update_capacities(baseline_scenario, new_capacities_by_line_id)
+    return update_frequencies(updated_scenario, new_frequencies_by_line_id)
 
 
 def do_the_line_planning(do_plot: bool) -> None:
@@ -111,7 +103,11 @@ def do_the_line_planning(do_plot: bool) -> None:
     result = lpp.get_result()
 
     if result.success:
+        plot_available_vs_used_capacity_per_link(result.solution.passengers_per_link, sort_criteria="pax").savefig(
+            "available vs. used capacity.jpg", dpi=900
+        )
         print(create_summary(planning_data, result))
+        return
     warnings.warn(f"lpp is not optimal, adjust {planning_data.parameters}")
 
 

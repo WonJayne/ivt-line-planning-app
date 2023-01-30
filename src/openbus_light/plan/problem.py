@@ -9,10 +9,11 @@ from typing import Collection, NamedTuple
 import gurobipy as grb
 import numpy as np
 
-from ..model import BusLine, PlanningScenario
+from ..model import BusLine, Direction, PlanningScenario
+from ..utils import pairwise
 from .network import Activity, LinePlanningNetwork
 from .parameters import LinePlanningParameters
-from .result import LPPResult, LPPSolution
+from .result import LPPResult, LPPSolution, PassengersPerLink
 
 
 class LPPData(NamedTuple):
@@ -46,12 +47,13 @@ class LPP:
     def _get_solution(self) -> LPPSolution:
         active_lines = self._extract_active_lines()
         return LPPSolution(
-            weighted_travel_time=self.calculate_weighted_travel_times(),
+            weighted_travel_time=self._calculate_weighted_travel_times(),
             active_lines=active_lines,
             used_vehicles=self._calculate_number_of_used_vehicles(active_lines),
+            passengers_per_link=self._extract_passengers_per_link(),
         )
 
-    def calculate_weighted_travel_times(self) -> MappingProxyType[Activity, timedelta]:
+    def _calculate_weighted_travel_times(self) -> MappingProxyType[Activity, timedelta]:
         passenger_flows = self._get_passenger_flow_values()
         cumulated_flows: dict[Activity, float] = defaultdict(float)
         weights = calculate_activity_weights(self._data.network, self._data.parameters)
@@ -79,6 +81,31 @@ class LPP:
             )
             for line in active_lines
         )
+
+    def _extract_passengers_per_link(
+        self,
+    ) -> MappingProxyType[BusLine, MappingProxyType[Direction, tuple[PassengersPerLink, ...]]]:
+        create_line_node_name = self._data.network.create_line_node_name
+        flows = self._get_passenger_flow_values()
+        passengers_per_line: dict[BusLine, dict[Direction, tuple[PassengersPerLink, ...]]] = {}
+        for line in self._data.scenario.bus_lines:
+            passengers_per_line[line] = {}
+            for direction in (line.direction_a, line.direction_b):
+                station_names = (
+                    create_line_node_name(station_name, line, direction) for station_name in direction.station_names
+                )
+                passenger_count_per_link = (
+                    sum(flows.select("*", self._get_network_link_index(first, second)))
+                    for first, second in pairwise(station_names)
+                )
+                passengers_per_line[line][direction] = tuple(
+                    PassengersPerLink(first, second, count)
+                    for (first, second), count in zip(pairwise(direction.station_names), passenger_count_per_link)
+                )
+        return MappingProxyType({key: MappingProxyType(value) for key, value in passengers_per_line.items()})
+
+    def _get_network_link_index(self, source: str, target: str) -> int:
+        return self._data.network.get_link_index(source=source, target=target)
 
     def _get_line_activation_values(self) -> grb.tupledict[tuple[int, int], float]:
         return self._model.getAttr("X", self._variables.line_configuration)  # noqa

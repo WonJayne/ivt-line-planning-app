@@ -56,6 +56,9 @@ class LinePlanningNetwork:
     def all_node_names(self) -> tuple[str]:
         return self.graph.vs["name"]
 
+    def get_link_index(self, source: str, target: str) -> int:
+        return self.graph.get_eid(source, target)
+
     @classmethod
     def _node_key(cls) -> str:
         return LPNNode.__name__
