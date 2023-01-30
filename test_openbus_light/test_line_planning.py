@@ -1,21 +1,12 @@
 import unittest
 from copy import copy
-from dataclasses import replace
 from datetime import timedelta
 from itertools import product
 from math import ceil
 
 from test_openbus_light.shared import cached_scenario, test_parameters
 
-from openbus_light.line_planning import (
-    LinePlanningNetwork,
-    LinePlanningParameters,
-    LPPData,
-    LPPResult,
-    create_line_planning_problem,
-)
-from openbus_light.line_planning.network import Activity
-from openbus_light.modelling import (
+from openbus_light.model import (
     BusLine,
     DemandMatrix,
     Direction,
@@ -23,6 +14,14 @@ from openbus_light.modelling import (
     Station,
     WalkableDistance,
 )
+from openbus_light.plan import (
+    LinePlanningNetwork,
+    LinePlanningParameters,
+    LPPData,
+    LPPResult,
+    create_line_planning_problem,
+)
+from openbus_light.plan.network import Activity
 
 
 def _create_non_walking_scenario() -> PlanningScenario:
@@ -139,7 +138,7 @@ class LinePlanningTestCase(unittest.TestCase):
     def test_with_walking_and_no_vehicles(self) -> None:
         scenario = _create_non_walking_scenario()
         zero_capacity_scenario = scenario._replace(
-            bus_lines=tuple(replace(line, regular_capacity=0) for line in scenario.bus_lines)
+            bus_lines=tuple(line._replace(regular_capacity=0) for line in scenario.bus_lines)
         )
         parameters_with_no_vehicles = test_parameters()._replace(maximal_number_of_vehicles=0)
 
@@ -152,7 +151,7 @@ class LinePlanningTestCase(unittest.TestCase):
     def test_zero_frequency_case(self) -> None:
         non_walking_scenario = _create_non_walking_scenario()
         zero_frequency_scenario = non_walking_scenario._replace(
-            bus_lines=tuple(replace(line, permitted_frequencies=(0,)) for line in non_walking_scenario.bus_lines)
+            bus_lines=tuple(line._replace(permitted_frequencies=(0,)) for line in non_walking_scenario.bus_lines)
         )
 
         with self.assertRaises(ZeroDivisionError):
@@ -193,11 +192,11 @@ class LinePlanningIntegrationTestCase(unittest.TestCase):
 
     def test_frequency_dependence(self) -> None:
         scenario_with_frequency_2 = self._baseline_scenario._replace(
-            bus_lines=tuple(replace(line, permitted_frequencies=(20,)) for line in self._baseline_scenario.bus_lines)
+            bus_lines=tuple(line._replace(permitted_frequencies=(20,)) for line in self._baseline_scenario.bus_lines)
         )
 
         scenario_with_frequency_1 = self._baseline_scenario._replace(
-            bus_lines=tuple(replace(line, permitted_frequencies=(10,)) for line in self._baseline_scenario.bus_lines)
+            bus_lines=tuple(line._replace(permitted_frequencies=(10,)) for line in self._baseline_scenario.bus_lines)
         )
 
         parameters_with_only_transfer_weight = test_parameters()._replace(
@@ -232,11 +231,11 @@ class LinePlanningIntegrationTestCase(unittest.TestCase):
 
     def test_frequency_independence(self) -> None:
         scenario_with_frequency_2 = self._baseline_scenario._replace(
-            bus_lines=tuple(replace(line, permitted_frequencies=(20,)) for line in self._baseline_scenario.bus_lines)
+            bus_lines=tuple(line._replace(permitted_frequencies=(20,)) for line in self._baseline_scenario.bus_lines)
         )
 
         scenario_with_frequency_1 = self._baseline_scenario._replace(
-            bus_lines=tuple(replace(line, permitted_frequencies=(10,)) for line in self._baseline_scenario.bus_lines)
+            bus_lines=tuple(line._replace(permitted_frequencies=(10,)) for line in self._baseline_scenario.bus_lines)
         )
 
         parameters_with_only_transfer_weight = test_parameters()._replace(

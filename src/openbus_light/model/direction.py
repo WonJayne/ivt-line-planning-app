@@ -3,6 +3,7 @@ from datetime import timedelta
 from functools import cached_property
 
 from ..utils import pairwise
+from .recordedtrip import RecordedTrip
 
 
 @dataclass(frozen=True)
@@ -10,6 +11,7 @@ class Direction:
     name: str
     station_names: tuple[str, ...]
     trip_times: tuple[timedelta, ...]
+    recorded_trips: tuple[RecordedTrip, ...] = tuple()
 
     def __post_init__(self) -> None:
         if not (

@@ -6,3 +6,4 @@ class ScenarioPaths(NamedTuple):
     to_lines: str
     to_stations: str
     to_districts: str
+    to_measurements: str

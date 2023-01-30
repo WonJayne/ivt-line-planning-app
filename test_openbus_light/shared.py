@@ -3,9 +3,9 @@ from functools import lru_cache
 
 from excercise_3 import load_paths
 
-from openbus_light.line_planning import LinePlanningParameters
-from openbus_light.manipulating import load_scenario
-from openbus_light.modelling import PlanningScenario
+from openbus_light.manipulate import load_scenario
+from openbus_light.model import PlanningScenario
+from openbus_light.plan import LinePlanningParameters
 
 
 def test_parameters() -> LinePlanningParameters:

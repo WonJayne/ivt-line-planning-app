@@ -1,9 +1,9 @@
 import warnings
-from dataclasses import replace
 from datetime import timedelta
 
 from constants import (
     GPS_BOX,
+    MEASUREMENTS,
     PATH_TO_DEMAND,
     PATH_TO_DEMAND_DISTRICT_POINTS,
     PATH_TO_LINE_DATA,
@@ -11,15 +11,15 @@ from constants import (
     WINTERTHUR_IMAGE,
 )
 
-from openbus_light.line_planning import (
+from openbus_light.manipulate import ScenarioPaths, load_scenario
+from openbus_light.model import PlanningScenario
+from openbus_light.plan import (
     LinePlanningNetwork,
     LinePlanningParameters,
     LPPData,
     create_line_planning_problem,
 )
-from openbus_light.manipulating import ScenarioPaths, load_scenario
-from openbus_light.modelling import PlanningScenario
-from openbus_light.plotting.demand import PlotBackground, create_plot
+from openbus_light.plot.demand import PlotBackground, create_plot
 from openbus_light.utils.summary import create_summary
 
 
@@ -29,6 +29,7 @@ def load_paths() -> ScenarioPaths:
         to_stations=PATH_TO_STATIONS,
         to_districts=PATH_TO_DEMAND_DISTRICT_POINTS,
         to_demand=PATH_TO_DEMAND,
+        to_measurements=MEASUREMENTS,
     )
 
 
@@ -56,14 +57,14 @@ def update_frequencies(
 ) -> PlanningScenario:
     updated_lines = []
     for line in scenario.bus_lines:
-        updated_lines.append(replace(line, permitted_frequencies=new_frequencies_by_line_nr[line.number]))
+        updated_lines.append(line._replace(permitted_frequencies=new_frequencies_by_line_nr[line.number]))
     return scenario._replace(bus_lines=tuple(updated_lines))
 
 
 def update_capacities(scenario: PlanningScenario, new_capacities_by_line_nr: dict[int, int]) -> PlanningScenario:
     updated_lines = []
     for line in scenario.bus_lines:
-        updated_lines.append(replace(line, regular_capacity=new_capacities_by_line_nr[line.number]))
+        updated_lines.append(line._replace(regular_capacity=new_capacities_by_line_nr[line.number]))
     return scenario._replace(bus_lines=tuple(updated_lines))
 
 

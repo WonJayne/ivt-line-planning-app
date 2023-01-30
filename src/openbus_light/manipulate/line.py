@@ -2,7 +2,7 @@ import glob
 import json
 import os
 from collections import defaultdict
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import timedelta
 from itertools import chain
 from statistics import mean
@@ -58,8 +58,7 @@ def load_lines_from_json(line_factory: LineFactory, path_to_lines: str) -> tuple
 def _equalise_travel_times_per_link(lines: Sequence[BusLine]) -> tuple[BusLine, ...]:
     average_travel_time_per_link = _calculate_average_travel_time_per_link(lines)
     return tuple(
-        replace(
-            line,
+        line._replace(
             direction_a=update_trip_times(average_travel_time_per_link, line.direction_a),
             direction_b=update_trip_times(average_travel_time_per_link, line.direction_b),
         )

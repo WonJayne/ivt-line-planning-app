@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from test_openbus_light.shared import cached_scenario
 
-from openbus_light.modelling import Station, WalkableDistance
+from openbus_light.model import Station, WalkableDistance
 
 
 class MyTestCase(unittest.TestCase):

@@ -1,5 +1,5 @@
 from collections import defaultdict
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import timedelta
 from itertools import chain
 from math import ceil
@@ -64,7 +64,7 @@ class LPP:
         line_lookup = {line.number: line for line in self._data.scenario.bus_lines}
         selected_line_configurations = self._get_line_activation_values()
         return tuple(
-            replace(line_lookup[line_nr], permitted_frequencies=(frequency,))
+            line_lookup[line_nr]._replace(permitted_frequencies=(frequency,))
             for (line_nr, frequency), is_selected in selected_line_configurations.items()
             if is_selected > 0.5
         )
