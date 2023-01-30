@@ -68,8 +68,17 @@ def update_capacities(scenario: PlanningScenario, new_capacities_by_line_nr: dic
     return scenario._replace(bus_lines=tuple(updated_lines))
 
 
-def update_scenario(baseline_scenario):
-    new_frequencies_by_line_id = {1: (6,), 2: (6,), 3: (6,), 4: (6,), 5: (6,), 7: (5,), 9: (8,), 10: (6,)}
+def update_scenario(baseline_scenario: PlanningScenario) -> PlanningScenario:
+    new_frequencies_by_line_id: dict[int, tuple[int, ...]] = {
+        1: (6,),
+        2: (6,),
+        3: (6,),
+        4: (6,),
+        5: (6,),
+        7: (5,),
+        9: (8,),
+        10: (6,),
+    }
     new_capacities_by_line_id = {1: 100, 2: 100, 3: 65, 4: 65, 5: 65, 7: 65, 9: 40, 10: 40}
     updated_scenario = update_frequencies(baseline_scenario, new_frequencies_by_line_id)
     updated_scenario = update_capacities(updated_scenario, new_capacities_by_line_id)

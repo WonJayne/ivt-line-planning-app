@@ -4,10 +4,12 @@ from datetime import timedelta
 
 from test_openbus_light.shared import cached_scenario
 
-from openbus_light.model import Station, WalkableDistance
+from openbus_light.model import PlanningScenario, Station, WalkableDistance
 
 
 class MyTestCase(unittest.TestCase):
+    _baseline_scenario: PlanningScenario
+
     def setUp(self) -> None:
         self._baseline_scenario = cached_scenario()
 

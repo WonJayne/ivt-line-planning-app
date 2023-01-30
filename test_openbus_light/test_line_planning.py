@@ -106,21 +106,21 @@ def _calculate_number_of_vehicles(scenario_with_frequency_1: PlanningScenario) -
     )
 
 
-def _calculate_total_passenger_count(non_walking_scenario):
+def _calculate_total_passenger_count(non_walking_scenario: PlanningScenario) -> float:
     return sum(sum(from_here.values()) for from_here in non_walking_scenario.demand_matrix.matrix.values())
 
 
 class LinePlanningTestCase(unittest.TestCase):
     def test_with_walking(self) -> None:
-        parameters_with_high_alternative_weight = test_parameters()._replace(
+        parameters_favoring_vehicle = test_parameters()._replace(
             waiting_time_weight=0, in_vehicle_time_weight=1 / 300, walking_time_weight=1, vehicle_cost_per_period=0
         )
-        parameters_with_only_walking_weight = test_parameters()._replace(
+        parameters_favoring_walking = test_parameters()._replace(
             waiting_time_weight=0, in_vehicle_time_weight=1, walking_time_weight=1 / 300, vehicle_cost_per_period=0
         )
         scenario_with_walking = _create_only_walking_scenario()
-        result_using_line = _solve_this_lpp(parameters_with_high_alternative_weight, scenario_with_walking)
-        result_using_walking = _solve_this_lpp(parameters_with_only_walking_weight, scenario_with_walking)
+        result_using_line = _solve_this_lpp(parameters_favoring_vehicle, scenario_with_walking)
+        result_using_walking = _solve_this_lpp(parameters_favoring_walking, scenario_with_walking)
 
         self.assertEqual(result_using_line.solution.weighted_travel_time[Activity.WALKING].total_seconds(), 0)
         self.assertEqual(
@@ -158,7 +158,7 @@ class LinePlanningTestCase(unittest.TestCase):
             _solve_this_lpp(test_parameters(), zero_frequency_scenario)
 
     def test_with_simple_plan(self) -> None:
-        parameters_with_only_walking_weight = test_parameters()._replace(
+        parameters_favoring_walking = test_parameters()._replace(
             waiting_time_weight=1 / 900,
             in_vehicle_time_weight=1 / 300,
             walking_time_weight=0,
@@ -166,7 +166,7 @@ class LinePlanningTestCase(unittest.TestCase):
             egress_time_weight=1 / 60,
         )
         non_walking_scenario = _create_non_walking_scenario()
-        only_walking_weighted_result = _solve_this_lpp(parameters_with_only_walking_weight, non_walking_scenario)
+        only_walking_weighted_result = _solve_this_lpp(parameters_favoring_walking, non_walking_scenario)
 
         with self.assertRaises(KeyError):
             self.assertEqual(only_walking_weighted_result.solution.weighted_travel_time[Activity.WALKING], 0)
@@ -185,6 +185,8 @@ class LinePlanningTestCase(unittest.TestCase):
 
 
 class LinePlanningIntegrationTestCase(unittest.TestCase):
+    _baseline_scenario: PlanningScenario
+
     def setUp(self) -> None:
         self._baseline_scenario = copy(cached_scenario())
         for origin in sorted(self._baseline_scenario.demand_matrix.all_origins())[10:]:
@@ -199,7 +201,7 @@ class LinePlanningIntegrationTestCase(unittest.TestCase):
             bus_lines=tuple(line._replace(permitted_frequencies=(10,)) for line in self._baseline_scenario.bus_lines)
         )
 
-        parameters_with_only_transfer_weight = test_parameters()._replace(
+        parameters_only_transfer_weight = test_parameters()._replace(
             waiting_time_weight=1,
             in_vehicle_time_weight=0,
             walking_time_weight=0,
@@ -207,8 +209,8 @@ class LinePlanningIntegrationTestCase(unittest.TestCase):
             egress_time_weight=0,
         )
 
-        result_with_2 = _solve_this_lpp(parameters_with_only_transfer_weight, scenario_with_frequency_2)
-        result_with_1 = _solve_this_lpp(parameters_with_only_transfer_weight, scenario_with_frequency_1)
+        result_with_2 = _solve_this_lpp(parameters_only_transfer_weight, scenario_with_frequency_2)
+        result_with_1 = _solve_this_lpp(parameters_only_transfer_weight, scenario_with_frequency_1)
 
         self.assertTrue(result_with_2.success)
         self.assertTrue(result_with_1.success)
@@ -238,12 +240,12 @@ class LinePlanningIntegrationTestCase(unittest.TestCase):
             bus_lines=tuple(line._replace(permitted_frequencies=(10,)) for line in self._baseline_scenario.bus_lines)
         )
 
-        parameters_with_only_transfer_weight = test_parameters()._replace(
+        parameters_only_transfer_weight = test_parameters()._replace(
             waiting_time_weight=0, in_vehicle_time_weight=1, walking_time_weight=1, vehicle_cost_per_period=0
         )
 
-        result_with_2 = _solve_this_lpp(parameters_with_only_transfer_weight, scenario_with_frequency_2)
-        result_with_1 = _solve_this_lpp(parameters_with_only_transfer_weight, scenario_with_frequency_1)
+        result_with_2 = _solve_this_lpp(parameters_only_transfer_weight, scenario_with_frequency_2)
+        result_with_1 = _solve_this_lpp(parameters_only_transfer_weight, scenario_with_frequency_1)
 
         self.assertTrue(result_with_2.success)
         self.assertTrue(result_with_1.success)
