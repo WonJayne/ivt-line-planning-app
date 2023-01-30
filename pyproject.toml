@@ -1,0 +1,150 @@
+[build-system]
+requires = [ "hatchling",]
+build-backend = "hatchling.build"
+
+[project]
+name = "openbus_light"
+version = "0.0.1"
+description = "Code for PuV TS-PART"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [ "Programming Language :: Python :: 3", "License :: OSI Approved :: MIT License", "Operating System :: OS Independent",]
+dependencies = [ "gurobipy~=10.0.0", "matplotlib~=3.6.3", "numba~=0.56.4", "numpy~=1.23.5", "pandas~=1.5.3", "python_igraph~=0.10.4", "tqdm~=4.64.1",]
+[[project.authors]]
+name = "Daniel Heimgartner"
+email = "daniel.heimgartner@ivt.baug.ethz.ch"
+
+[[project.authors]]
+name = "Florian Fuchs"
+email = "florian.fuchs@ivt.baug.ethz.ch"
+
+[project.urls]
+Homepage = "https://www.ivt.ethz.ch/"
+
+[tool.black]
+line-length = 120
+target-version = [ "py311", "py310",]
+exclude = "/(\n    \\.eggs\n  | \\.git\n  | \\.hg\n  | \\.mypy_cache\n  | \\.tox\n  | \\.venv\n  | _build\n  | buck-out\n  | build\n | venv\n  | build_venv\n | dist\n)/\n"
+
+[tool.isort]
+profile = "black"
+src_paths = [ "src", "test",]
+skip_glob = [ "venv/*", "build_venv/*",]
+
+[tool.flake8]
+max-line-length = 120
+exclude = ".git,__pycache__,docs/source/conf.py,build,dist,tests"
+ignore = "I101,D100,D101,D102,D103,D104,D105,D107,D401,E203,I900,N802,N806,N812,W503,S311,S605,S607,ISC003,ISC001,T101,T000,F541,PL123"
+per-file-ignores = "__init__.py:F401,F403"
+
+[tool.mypy]
+ignore_missing_imports = "True"
+disallow_untyped_defs = "True"
+check_untyped_defs = "True"
+warn_redundant_casts = "True"
+no_implicit_optional = "True"
+strict_optional = "True"
+html_report = "mypy_report"
+
+[tool.pylint]
+ignore = "CVS"
+persistent = "yes"
+jobs = 4
+unsafe-load-any-extension = "no"
+optimize-ast = "no"
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = "C0114,C0116,C0115,C0201,R0904,R0903,W1514"
+
+[tool.pylint.reports]
+output-format = "text"
+files-output = "no"
+reports = "no"
+
+[tool.pylint.logging]
+logging-modules = "logging"
+
+[tool.pylint.variables]
+init-import = "no"
+dummy-variables-rgx = "_$|dummy"
+callbacks = "cb_,_cb"
+
+[tool.pylint.typecheck]
+ignore-mixin-members = "yes"
+ignored-modules = "grcp*,gurobipy,pycryptosat"
+
+[tool.pylint.similarities]
+min-similarity-lines = 4
+ignore-comments = "yes"
+ignore-docstrings = "yes"
+ignore-imports = "no"
+
+[tool.pylint.miscellaneous]
+notes = "FIXME,TODO"
+
+[tool.pylint.spelling]
+spelling-store-unknown-words = "no"
+
+[tool.pylint.format]
+max-line-length = 120
+ignore-long-lines = "^\\s*(# )?<?https?://\\S+>?$"
+single-line-if-stmt = "no"
+no-space-check = "trailing-comma,dict-separator"
+max-module-lines = 1000
+indent-string = "    "
+indent-after-paren = 4
+
+[tool.pylint.basic]
+good-names = "i,j,k,_,lb,ub,dt,db"
+bad-names = "foo,bar,baz,toto,tutu,tata,test,l"
+include-naming-hint = "y"
+variable-rgx = "[a-z_][a-z0-9_]{2,30}$"
+variable-name-hint = "[a-z_][a-z0-9_]{2,30}$"
+class-rgx = "[A-Z_][a-zA-Z0-9]+$"
+class-name-hint = "[A-Z_][a-zA-Z0-9]+$"
+attr-rgx = "[a-z_][a-z0-9_]{1,30}$"
+attr-name-hint = "[a-z_][a-z0-9_]{1,30}$"
+method-rgx = "[a-z_][a-z0-9_]{2,40}$"
+method-name-hint = "[a-z_][a-z0-9_]{2,40}$"
+argument-rgx = "[a-z_][a-z0-9_]{2,30}$"
+argument-name-hint = "[a-z_][a-z0-9_]{2,30}$"
+const-rgx = "(([A-Z_][A-Z0-9_]*)|(__.*__))$"
+const-name-hint = " (([A-Z_][A-Z0-9_]*)|(__.*__))$"
+module-rgx = "(([a-z_][a-z0-9_]*)|([A-Z][a-zA-Z0-9]+))$"
+module-name-hint = "(([a-z_][a-z0-9_]*)|([A-Z][a-zA-Z0-9]+))$"
+inlinevar-rgx = "[A-Za-z_][A-Za-z0-9_]*$"
+inlinevar-name-hint = "[A-Za-z_][A-Za-z0-9_]*$"
+function-rgx = "[a-z_][a-z0-9_]{2,40}$"
+function-name-hint = "[a-z_][a-z0-9_]{2,40}$"
+class-attribute-rgx = "([A-Za-z_][A-Za-z0-9_]{1,30}|(__.*__))$"
+class-attribute-name-hint = "([A-Za-z_][A-Za-z0-9_]{1,30}|(__.*__))$"
+no-docstring-rgx = "^_"
+docstring-min-length = -1
+
+[tool.pylint.elif]
+max-nested-blocks = 5
+
+[tool.pylint.imports]
+deprecated-modules = "optparse"
+
+[tool.pylint.designs]
+max-args = 5
+ignored-argument-names = "_.*"
+max-locals = 15
+max-returns = 9
+max-branches = 12
+max-statements = 50
+max-parents = 7
+max-attributes = 7
+min-public-methods = 2
+max-public-methods = 20
+max-bool-expr = 5
+
+[tool.pylint.classes]
+defining-attr-methods = "__init__,__new__"
+valid-classmethod-first-arg = "cls"
+valid-metaclass-classmethod-first-arg = "mcs"
+exclude-protected = "_asdict,_fields,_replace,_source,_make"
+
+[tool.pylint.exceptions]
+overgeneral-exceptions = "Exception"

@@ -1,0 +1,109 @@
+import warnings
+from dataclasses import replace
+from datetime import timedelta
+
+from constants import (
+    GPS_BOX,
+    PATH_TO_DEMAND,
+    PATH_TO_DEMAND_DISTRICT_POINTS,
+    PATH_TO_LINE_DATA,
+    PATH_TO_STATIONS,
+    WINTERTHUR_IMAGE,
+)
+
+from openbus_light.line_planning import (
+    LinePlanningNetwork,
+    LinePlanningParameters,
+    LPPData,
+    create_line_planning_problem,
+)
+from openbus_light.manipulating import ScenarioPaths, load_scenario
+from openbus_light.modelling import PlanningScenario
+from openbus_light.plotting.demand import PlotBackground, create_plot
+from openbus_light.utils.summary import create_summary
+
+
+def load_paths() -> ScenarioPaths:
+    return ScenarioPaths(
+        to_lines=PATH_TO_LINE_DATA,
+        to_stations=PATH_TO_STATIONS,
+        to_districts=PATH_TO_DEMAND_DISTRICT_POINTS,
+        to_demand=PATH_TO_DEMAND,
+    )
+
+
+def configure_parameters() -> LinePlanningParameters:
+    return LinePlanningParameters(
+        egress_time_weight=0,
+        period_duration=timedelta(hours=1),
+        waiting_time_weight=10,
+        in_vehicle_time_weight=10,
+        walking_time_weight=10,
+        dwell_time_at_terminal=timedelta(seconds=5 * 60),
+        vehicle_cost_per_period=0,
+        vehicle_capacity=60,
+        permitted_frequencies=(1, 2, 3, 4, 5, 6, 8, 10),
+        demand_association_radius=500,
+        walking_speed_between_stations=0.6,
+        maximal_walking_distance=300,
+        demand_scaling=0.1,
+        maximal_number_of_vehicles=60,
+    )
+
+
+def update_frequencies(
+    scenario: PlanningScenario, new_frequencies_by_line_nr: dict[int, tuple[int, ...]]
+) -> PlanningScenario:
+    updated_lines = []
+    for line in scenario.bus_lines:
+        updated_lines.append(replace(line, permitted_frequencies=new_frequencies_by_line_nr[line.number]))
+    return scenario._replace(bus_lines=tuple(updated_lines))
+
+
+def update_capacities(scenario: PlanningScenario, new_capacities_by_line_nr: dict[int, int]) -> PlanningScenario:
+    updated_lines = []
+    for line in scenario.bus_lines:
+        updated_lines.append(replace(line, regular_capacity=new_capacities_by_line_nr[line.number]))
+    return scenario._replace(bus_lines=tuple(updated_lines))
+
+
+def update_scenario(baseline_scenario):
+    new_frequencies_by_line_id = {1: (6,), 2: (6,), 3: (6,), 4: (6,), 5: (6,), 7: (5,), 9: (8,), 10: (6,)}
+    new_capacities_by_line_id = {1: 100, 2: 100, 3: 65, 4: 65, 5: 65, 7: 65, 9: 40, 10: 40}
+    updated_scenario = update_frequencies(baseline_scenario, new_frequencies_by_line_id)
+    updated_scenario = update_capacities(updated_scenario, new_capacities_by_line_id)
+    return updated_scenario
+
+
+def do_the_line_planning(do_plot: bool) -> None:
+    paths = load_paths()
+    parameters = configure_parameters()
+    baseline_scenario = load_scenario(parameters, paths)
+
+    updated_scenario = update_scenario(baseline_scenario)
+
+    updated_scenario.check_consistency()
+    planning_data = LPPData(
+        parameters,
+        updated_scenario,
+        LinePlanningNetwork.create_from_scenario(updated_scenario, parameters.period_duration),
+    )
+
+    if do_plot:
+        figure = create_plot(
+            stations=planning_data.scenario.stations,
+            plot_background=PlotBackground(WINTERTHUR_IMAGE, GPS_BOX),
+        )
+        figure.savefig("stations_and_caught_demand.jpg", dpi=900)
+
+    lpp = create_line_planning_problem(planning_data)
+    lpp.solve()
+    result = lpp.get_result()
+
+    if result.success:
+        print(create_summary(planning_data, result))
+    warnings.warn(f"lpp is not optimal, adjust {planning_data.parameters}")
+
+
+if __name__ == "__main__":
+    do_the_line_planning(do_plot=False)
