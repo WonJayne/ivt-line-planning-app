@@ -23,6 +23,7 @@ Homepage = "https://www.ivt.ethz.ch/"
 
 [tool.black]
 line-length = 120
+skip-magic-trailing-comma = "True"
 target-version = [ "py311", "py310",]
 exclude = "/(\n    \\.eggs\n  | \\.git\n  | \\.hg\n  | \\.mypy_cache\n  | \\.tox\n  | \\.venv\n  | _build\n  | buck-out\n  | build\n | venv\n  | build_venv\n | dist\n)/\n"
 
