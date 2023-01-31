@@ -21,10 +21,13 @@ def enrich_lines_with_recorded_trips(path: str, lines: Collection[BusLine]) -> t
     for line_id, grouped_measurements in raw_measurements.groupby("LINIEN_TEXT"):
         if line_id not in lines_by_number:
             continue
-        converted_group = _convert_these_columns_to_datetime(
-            grouped_measurements, ("ANKUNFTSZEIT", "ABFAHRTSZEIT", "AN_PROGNOSE", "AB_PROGNOSE"), "%d.%m.%Y %H:%M"
+        first_conversion = _convert_these_columns_to_datetime(
+            grouped_measurements, ("ANKUNFTSZEIT", "ABFAHRTSZEIT"), "%d.%m.%Y %H:%M"
         )
-        enriched_lines.append(_add_recorded_trips_to_line(lines_by_number[line_id], converted_group))
+        second_conversion = _convert_these_columns_to_datetime(
+            first_conversion, ("AN_PROGNOSE", "AB_PROGNOSE"), "%d.%m.%Y %H:%M:%S"
+        )
+        enriched_lines.append(_add_recorded_trips_to_line(lines_by_number[line_id], second_conversion))
     return tuple(enriched_lines)
 
 
