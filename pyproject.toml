@@ -9,7 +9,7 @@ description = "Code for PuV TS-PART"
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [ "Programming Language :: Python :: 3", "License :: OSI Approved :: MIT License", "Operating System :: OS Independent",]
-dependencies = [ "gurobipy~=10.0.0", "matplotlib~=3.6.3", "numba~=0.56.4", "numpy~=1.23.5", "pandas~=1.5.3", "python_igraph~=0.10.4", "tqdm~=4.64.1",]
+dependencies = [ "gurobipy~=10.0.1", "matplotlib~=3.6.3", "numba~=0.56.4", "numpy~=1.23.5", "pandas~=1.5.3", "python_igraph~=0.10.4", "tqdm~=4.64.1",]
 [[project.authors]]
 name = "Daniel Heimgartner"
 email = "daniel.heimgartner@ivt.baug.ethz.ch"

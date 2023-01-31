@@ -1,4 +1,4 @@
-gurobipy~=10.0.0
+gurobipy~=10.0.1
 matplotlib~=3.6.3
 numba~=0.56.4
 numpy~=1.23.5
