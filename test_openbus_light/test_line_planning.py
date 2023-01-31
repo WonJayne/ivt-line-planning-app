@@ -6,14 +6,7 @@ from math import ceil
 
 from test_openbus_light.shared import cached_scenario, test_parameters
 
-from openbus_light.model import (
-    BusLine,
-    DemandMatrix,
-    Direction,
-    PlanningScenario,
-    Station,
-    WalkableDistance,
-)
+from openbus_light.model import BusLine, DemandMatrix, Direction, PlanningScenario, Station, WalkableDistance
 from openbus_light.plan import (
     LinePlanningNetwork,
     LinePlanningParameters,

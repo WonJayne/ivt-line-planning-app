@@ -15,12 +15,7 @@ from plots import plot_available_vs_used_capacity_per_link
 
 from openbus_light.manipulate import ScenarioPaths, load_scenario
 from openbus_light.model import PlanningScenario
-from openbus_light.plan import (
-    LinePlanningNetwork,
-    LinePlanningParameters,
-    LPPData,
-    create_line_planning_problem,
-)
+from openbus_light.plan import LinePlanningNetwork, LinePlanningParameters, LPPData, create_line_planning_problem
 from openbus_light.plot.demand import PlotBackground, create_plot
 from openbus_light.utils.summary import create_summary
 
@@ -93,8 +88,7 @@ def do_the_line_planning(do_plot: bool) -> None:
 
     if do_plot:
         figure = create_plot(
-            stations=planning_data.scenario.stations,
-            plot_background=PlotBackground(WINTERTHUR_IMAGE, GPS_BOX),
+            stations=planning_data.scenario.stations, plot_background=PlotBackground(WINTERTHUR_IMAGE, GPS_BOX)
         )
         figure.savefig("stations_and_caught_demand.jpg", dpi=900)
 

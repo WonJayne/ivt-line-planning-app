@@ -27,12 +27,6 @@ def load_served_stations(path_to_stations: str, lines: Collection[BusLine]) -> t
         points_per_station[point_name].append(PointIn2D(lat=float(raw_point.N_WGS84), long=float(raw_point.E_WGS84)))
 
     return tuple(
-        Station(
-            name=name,
-            points=tuple(points),
-            lines=tuple(),
-            district_points=[],
-            districts_names=[],
-        )
+        Station(name=name, points=tuple(points), lines=tuple(), district_points=[], districts_names=[])
         for name, points in points_per_station.items()
     )

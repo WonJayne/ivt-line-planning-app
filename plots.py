@@ -34,10 +34,7 @@ def plot_available_vs_used_capacity_per_link(
 
 
 def _add_bar_plot_to_axis(values_to_add: Collection[float], left_axis: plt.Axes) -> None:
-    left_axis.barh(
-        tuple(range(len(values_to_add))),
-        values_to_add,
-    )
+    left_axis.barh(tuple(range(len(values_to_add))), values_to_add)
 
 
 def _create_sorted_total_count(
