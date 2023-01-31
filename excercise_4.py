@@ -52,8 +52,6 @@ def main() -> None:
                 trip_times = calculate_trip_times(record)
                 dwell_times = calculate_dwell_times(record)
 
-    print(lines_with_recordings)
-
 
 if __name__ == "__main__":
     main()
