@@ -40,12 +40,12 @@ def configure_parameters() -> LinePlanningParameters:
         dwell_time_at_terminal=timedelta(seconds=5 * 60),
         vehicle_cost_per_period=0,
         vehicle_capacity=60,
-        permitted_frequencies=(4, 5, 6, 8, 10),
+        permitted_frequencies=(4, 10),
         demand_association_radius=500,
         walking_speed_between_stations=0.6,
         maximal_walking_distance=300,
         demand_scaling=0.1,
-        maximal_number_of_vehicles=41,
+        maximal_number_of_vehicles=None,
     )
 
 
