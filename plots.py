@@ -9,7 +9,7 @@ from openbus_light.plan.result import PassengersPerLink
 
 def plot_available_vs_used_capacity_per_link(
     passengers_per_link: Mapping[BusLine, Mapping[Direction, Sequence[PassengersPerLink]]],
-    sort_criteria: Literal["pax"] | Literal["capacity"],
+    sort_criteria: Literal["pax", "capacity"],
 ) -> plt.Figure:
     data_in_sorted_direction, data_in_other_direction = _get_data_sorted_by_direction(passengers_per_link)
     sorted_count = _create_sorted_total_count(
@@ -25,16 +25,26 @@ def plot_available_vs_used_capacity_per_link(
         data_in_other_direction[key] if key in data_in_other_direction else tuple() for key, _ in sorted_count
     )
 
-    _add_bar_plot_to_axis([sum(value[2] for value in values) for values in values_in_direction], left_axis)
-    _add_bar_plot_to_axis([sum(value[1] for value in values) for values in values_in_direction], left_axis)
-    _add_bar_plot_to_axis([sum(value[2] for value in values) for values in values_in_other_direction], right_axis)
-    _add_bar_plot_to_axis([sum(value[1] for value in values) for values in values_in_other_direction], right_axis)
+    _add_bar_plot_to_axis([sum(value[2] for value in values) for values in values_in_direction], left_axis, "capacity")
+    _add_bar_plot_to_axis([sum(value[1] for value in values) for values in values_in_direction], left_axis, "pax")
+    _add_bar_plot_to_axis(
+        [sum(value[2] for value in values) for values in values_in_other_direction], right_axis, "capacity"
+    )
+    _add_bar_plot_to_axis(
+        [sum(value[1] for value in values) for values in values_in_other_direction], right_axis, "pax"
+    )
     left_axis.invert_xaxis()
+    left_axis.set_ylabel("Line Segment (Direction A->B)")
+    right_y_axis = right_axis.twinx()
+    right_y_axis.set_ylabel("Line Segment (Direction B->A)")
+    left_axis.set_xlabel("Pax [n]")
+    right_axis.set_xlabel("Pax [n]")
+    left_axis.legend()
     return figure
 
 
-def _add_bar_plot_to_axis(values_to_add: Collection[float], left_axis: plt.Axes) -> None:
-    left_axis.barh(tuple(range(len(values_to_add))), values_to_add)
+def _add_bar_plot_to_axis(values_to_add: Collection[float], left_axis: plt.Axes, label: str) -> None:
+    left_axis.barh(tuple(range(len(values_to_add))), values_to_add, label=label)
 
 
 def _create_sorted_total_count(

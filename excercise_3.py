@@ -98,7 +98,10 @@ def do_the_line_planning(do_plot: bool) -> None:
 
     if result.success:
         plot_available_vs_used_capacity_per_link(result.solution.passengers_per_link, sort_criteria="pax").savefig(
-            "available vs. used capacity.jpg", dpi=900
+            "available_vs_used_capacity_sorted_by_pax.jpg", dpi=900
+        )
+        plot_available_vs_used_capacity_per_link(result.solution.passengers_per_link, sort_criteria="capacity").savefig(
+            "available_vs_used_capacity_sorted_by_capacity.jpg", dpi=900
         )
         print(create_summary(planning_data, result))
         return
