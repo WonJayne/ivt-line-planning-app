@@ -11,7 +11,7 @@ from constants import (
     PATH_TO_STATIONS,
     WINTERTHUR_IMAGE,
 )
-from plots import plot_available_vs_used_capacity_per_link
+from plots import plot_available_vs_used_capacity_for_each_direction, plot_available_vs_used_capacity_per_link
 
 from openbus_light.manipulate import ScenarioPaths, load_scenario
 from openbus_light.model import PlanningScenario
@@ -97,6 +97,10 @@ def do_the_line_planning(do_plot: bool) -> None:
     result = lpp.get_result()
 
     if result.success:
+        for line, passengers in result.solution.passengers_per_link.items():
+            plot_available_vs_used_capacity_for_each_direction(line, passengers).savefig(
+                f"available_vs_used_capacity_for_line_{line.number}.jpg", dpi=900
+            )
         plot_available_vs_used_capacity_per_link(result.solution.passengers_per_link, sort_criteria="pax").savefig(
             "available_vs_used_capacity_sorted_by_pax.jpg", dpi=900
         )
