@@ -42,10 +42,7 @@ def _create_alignment_of_stop_sequences(
             aligned_b.append(StationPair(*pairs_b[j]))
             j += 1
 
-    reversed_direction_b = tuple(
-        None if pair is None else StationPair(pair[1], pair[0]) for pair in reversed(aligned_b)
-    )
-    return tuple(aligned_a), reversed_direction_b
+    return tuple(aligned_a), (tuple(None if pair is None else StationPair(pair[1], pair[0]) for pair in aligned_b))
 
 
 def __to_str(station_pair: StationPair) -> str:
