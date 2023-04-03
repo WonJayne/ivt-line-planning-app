@@ -1,10 +1,14 @@
+import os
+import pickle
+import tempfile
+
 import pandas as pd
 from excercise_3 import configure_parameters, load_paths
 from pandas import DataFrame
 
 from openbus_light.manipulate import load_scenario
 from openbus_light.manipulate.recorded_trip import enrich_lines_with_recorded_trips
-from openbus_light.model import RecordedTrip
+from openbus_light.model import BusLine, RecordedTrip
 
 
 def calculate_trip_times(recorded_trip: RecordedTrip) -> pd.DataFrame:
@@ -39,13 +43,27 @@ def calculate_dwell_times(recorded_trip: RecordedTrip) -> DataFrame:
     return pd.DataFrame({"dwell_time_planned": dwell_time_planned, "dwell_time_observed": dwell_time_observed})
 
 
-def main() -> None:
+def load_bus_lines_with_measurements(selected_line_numbers: frozenset[int]) -> tuple[BusLine, ...]:
+    cache_key = "$".join(map(str, sorted(selected_line_numbers)))
+    cache_filename = os.path.join(tempfile.gettempdir(), ".open_bus_light_cache", f"{cache_key}.pickle")
+    if os.path.exists(cache_filename):
+        with open(cache_filename, "rb") as f:
+            print(f"loaded bus lines from cache {cache_filename}")
+            return pickle.load(f)
     paths = load_paths()
     parameters = configure_parameters()
     baseline_scenario = load_scenario(parameters, paths)
     baseline_scenario.check_consistency()
-    lines_with_recordings = enrich_lines_with_recorded_trips(paths.to_measurements, baseline_scenario.bus_lines)
+    selected_lines = {line for line in baseline_scenario.bus_lines if line.number in selected_line_numbers}
+    lines_with_recordings = enrich_lines_with_recorded_trips(paths.to_measurements, selected_lines)
+    os.makedirs(os.path.dirname(cache_filename), exist_ok=True)
+    with open(cache_filename, "wb") as f:
+        pickle.dump(lines_with_recordings, f)
+    return lines_with_recordings
 
+
+def analysis(selected_line_numbers: frozenset[int]) -> None:
+    lines_with_recordings = load_bus_lines_with_measurements(selected_line_numbers)
     for line in lines_with_recordings:
         for direction in (line.direction_a, line.direction_b):
             for record in direction.recorded_trips:
@@ -54,4 +72,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    analysis(frozenset(range(5)))
