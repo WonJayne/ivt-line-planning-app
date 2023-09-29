@@ -26,7 +26,8 @@ def _create_non_walking_scenario() -> PlanningScenario:
     )
     bus_lines = (
         BusLine(
-            1,
+            0,
+            "1",
             Direction(
                 "a", ("A", "B", "C", "D"), (timedelta(seconds=300), timedelta(seconds=300), timedelta(seconds=300))
             ),
@@ -37,7 +38,8 @@ def _create_non_walking_scenario() -> PlanningScenario:
             permitted_frequencies=(1, 2),
         ),
         BusLine(
-            2,
+            1,
+            "2",
             Direction("a", ("A", "D"), (timedelta(seconds=300),)),
             Direction("b", ("D", "A"), (timedelta(seconds=300),)),
             regular_capacity=100,
@@ -57,7 +59,8 @@ def _create_only_walking_scenario() -> PlanningScenario:
     )
     bus_lines = (
         BusLine(
-            1,
+            0,
+            "1",
             Direction(
                 "a", ("A", "B", "C", "D"), (timedelta(seconds=300), timedelta(seconds=300), timedelta(seconds=300))
             ),

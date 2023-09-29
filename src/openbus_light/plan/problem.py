@@ -6,8 +6,9 @@ from math import ceil
 from types import MappingProxyType
 from typing import Collection, NamedTuple
 
-import gurobipy as grb
 import numpy as np
+import pulp as pl
+from pulp import LpVariable
 
 from ..model import BusLine, Direction, PlanningScenario
 from ..utils import pairwise
@@ -23,24 +24,23 @@ class LPPData(NamedTuple):
 
 
 class _LPPVariables(NamedTuple):
-    line_configuration: grb.tupledict[tuple[int, int], grb.Var]
-    passenger_flow: grb.tupledict[tuple[str, int], grb.Var]
+    line_configuration: dict[tuple[int, int], LpVariable]
+    passenger_flow: dict[tuple[str, int], LpVariable]
 
 
 @dataclass(frozen=True)
 class LPP:
-    _model: grb.Model
+    _model: pl.LpProblem
     _variables: _LPPVariables
     _data: LPPData
 
     def solve(self) -> None:
-        self._model.optimize()
-        if self._model.getAttr("status") == grb.GRB.INFEASIBLE:
-            self._model.computeIIS()
-            self._model.write(f"{self.__class__.__name__}.ilp")
+        self._model.solve()
+        if self._model.status == pl.LpStatusInfeasible:
+            self._model.writeLP(f"{self.__class__.__name__}.lp")
 
     def get_result(self) -> LPPResult:
-        if self._model.getAttr("status") == grb.GRB.OPTIMAL:
+        if self._model.status == pl.LpStatusOptimal:
             return LPPResult.from_success(self._get_solution())
         return LPPResult.from_error()
 
@@ -54,16 +54,25 @@ class LPP:
         )
 
     def _calculate_weighted_travel_times(self) -> MappingProxyType[Activity, timedelta]:
-        passenger_flows = self._get_passenger_flow_values()
         cumulated_flows: dict[Activity, float] = defaultdict(float)
         weights = calculate_activity_weights(self._data.network, self._data.parameters)
         links = self._data.network.all_links
-        for i, (link, weight) in enumerate(zip(links, weights)):
-            cumulated_flows[link.activity] += sum(passenger_flows.select("*", i)) * weight
+        accumulated_passenger_flows = self._accumulate_flows_per_edge_index(self._get_passenger_flow_values())
+        for edge_index, (link, weight) in enumerate(zip(links, weights)):
+            cumulated_flows[link.activity] += sum(accumulated_passenger_flows[edge_index]) * weight
         return MappingProxyType({key: timedelta(seconds=time) for key, time in cumulated_flows.items()})
 
+    @staticmethod
+    def _accumulate_flows_per_edge_index(
+            passenger_flows: dict[tuple[str, int], float]
+    ) -> defaultdict[int, list[float]]:
+        accumulated_passenger_flows = defaultdict(list)
+        for (_, edge_index), flow in passenger_flows.items():
+            accumulated_passenger_flows[edge_index].append(flow)
+        return accumulated_passenger_flows
+
     def _extract_active_lines(self) -> tuple[BusLine, ...]:
-        line_lookup = {line.number: line for line in self._data.scenario.bus_lines}
+        line_lookup: dict[int, BusLine] = {line.number: line for line in self._data.scenario.bus_lines}
         selected_line_configurations = self._get_line_activation_values()
         return tuple(
             line_lookup[line_nr]._replace(permitted_frequencies=(frequency,))
@@ -83,11 +92,12 @@ class LPP:
         )
 
     def _extract_passengers_per_link(
-        self,
+            self,
     ) -> MappingProxyType[BusLine, MappingProxyType[Direction, tuple[PassengersPerLink, ...]]]:
         create_line_node_name = self._data.network.create_line_node_name
         flows = self._get_passenger_flow_values()
         passengers_per_line: dict[BusLine, dict[Direction, tuple[PassengersPerLink, ...]]] = {}
+        accumulated_passenger_flows = self._accumulate_flows_per_edge_index(flows)
         for line in self._data.scenario.bus_lines:
             passengers_per_line[line] = {}
             for direction in (line.direction_a, line.direction_b):
@@ -95,7 +105,7 @@ class LPP:
                     create_line_node_name(station_name, line, direction) for station_name in direction.station_names
                 )
                 passenger_count_per_link = (
-                    sum(flows.select("*", self._get_network_link_index(first, second)))
+                    sum(accumulated_passenger_flows[self._get_network_link_index(first, second)])
                     for first, second in pairwise(station_names)
                 )
                 passengers_per_line[line][direction] = tuple(
@@ -107,19 +117,22 @@ class LPP:
     def _get_network_link_index(self, source: str, target: str) -> int:
         return self._data.network.get_link_index(source=source, target=target)
 
-    def _get_line_activation_values(self) -> grb.tupledict[tuple[int, int], float]:
-        return self._model.getAttr("X", self._variables.line_configuration)  # noqa
+    def _get_line_activation_values(self) -> dict[tuple[int, int], float]:
+        return {key: var.varValue for key, var in self._variables.line_configuration.items()}
 
-    def _get_passenger_flow_values(self) -> grb.tupledict[tuple[str, int], float]:
-        return self._model.getAttr("X", self._variables.passenger_flow)  # noqa
+    def _get_passenger_flow_values(self) -> dict[tuple[str, int], float]:
+        return {key: var.varValue for key, var in self._variables.passenger_flow.items()}
 
 
 def create_line_planning_problem(lpp_data: LPPData) -> LPP:
-    _add_constraints(lpp_data, lpp_model := grb.Model(), lpp_variables := _add_variables(lpp_model, lpp_data))
+    lpp_model = pl.LpProblem()
+    lpp_variables = _add_variables(lpp_data)
+    _add_constraints(lpp_data, lpp_model, lpp_variables)
+    _add_objective(lpp_data, lpp_model, lpp_variables)
     return LPP(lpp_model, lpp_variables, lpp_data)
 
 
-def _add_constraints(lpp_data: LPPData, lpp_model: grb.Model, lpp_variables: _LPPVariables) -> None:
+def _add_constraints(lpp_data: LPPData, lpp_model: pl.LpProblem, lpp_variables: _LPPVariables) -> None:
     _add_flow_conservation_constraints(lpp_model, lpp_variables, lpp_data)
     _add_capacity_constraints(lpp_model, lpp_variables, lpp_data)
     _add_at_most_one_config_per_line_allowed(lpp_model, lpp_variables, lpp_data)
@@ -127,33 +140,24 @@ def _add_constraints(lpp_data: LPPData, lpp_model: grb.Model, lpp_variables: _LP
         _restrict_the_number_of_vehicles(lpp_model, lpp_variables, lpp_data)
 
 
-def _add_variables(lpp_model: grb.Model, lpp_data: LPPData) -> _LPPVariables:
-    passenger_flow_variables = _add_passenger_flow_variables(lpp_data, lpp_model)
-    line_configuration_variables = _add_line_configuration_variables(lpp_data, lpp_model)
+def _add_variables(lpp_data: LPPData) -> _LPPVariables:
+    passenger_flow_variables = _add_passenger_flow_variables(lpp_data)
+    line_configuration_variables = _add_line_configuration_variables(lpp_data)
     return _LPPVariables(line_configuration_variables, passenger_flow_variables)
 
 
-def _add_line_configuration_variables(data: LPPData, model: grb.Model) -> grb.tupledict[tuple[int, int], grb.Var]:
-    line_configuration_variables: grb.tupledict[tuple[int, int], grb.Var] = grb.tupledict()
-    parameters = data.parameters
+def _add_line_configuration_variables(data: LPPData) -> dict[tuple[int, int], LpVariable]:
+    line_configuration_variables: dict[tuple[int, int], LpVariable] = {}
     for line in data.scenario.bus_lines:
-        minimal_circulation_time = _calculate_minimal_circulation_time(line, parameters.dwell_time_at_terminal)
         for frequency in line.permitted_frequencies:
-            required_circulations = _calculate_number_of_required_vehicles(
-                frequency, minimal_circulation_time, parameters.period_duration
-            )
-            line_configuration_variables[line.number, frequency] = model.addVar(
-                lb=0,
-                ub=1,
-                obj=required_circulations * parameters.vehicle_cost_per_period,
-                vtype=grb.GRB.BINARY,
-                name=f"line:{line.number}@{frequency}",
+            line_configuration_variables[line.number, frequency] = LpVariable(
+                cat=pl.const.LpBinary, name=f"line:{line.number}-{frequency}"
             )
     return line_configuration_variables
 
 
 def _calculate_number_of_required_vehicles(
-    frequency: int, minimal_circulation_time: timedelta, period_duration: timedelta
+        frequency: int, minimal_circulation_time: timedelta, period_duration: timedelta
 ) -> int:
     return ceil(minimal_circulation_time.total_seconds() / period_duration.total_seconds() * frequency)
 
@@ -165,22 +169,36 @@ def _calculate_minimal_circulation_time(line: BusLine, dwell_time_at_terminal: t
     return timedelta(seconds=in_seconds)
 
 
-def _add_passenger_flow_variables(
-    line_planning_data: LPPData, model: grb.Model
-) -> grb.tupledict[tuple[str, int], grb.Var]:
-    passenger_flow_variables: grb.tupledict[tuple[str, int], grb.Var] = grb.tupledict()
+def _add_passenger_flow_variables(line_planning_data: LPPData) -> dict[tuple[str, int], LpVariable]:
+    passenger_flow_variables: dict[tuple[str, int], LpVariable] = {}
     all_origins = line_planning_data.scenario.demand_matrix.all_origins()
     link_weights = calculate_activity_weights(line_planning_data.network, line_planning_data.parameters)
     for origin in all_origins:
-        for link_index, weight in enumerate(link_weights):
-            passenger_flow_variables[origin, link_index] = model.addVar(
-                lb=0, ub=float("inf"), obj=weight, vtype=grb.GRB.CONTINUOUS, name=f"{origin}-{link_index}"
+        for link_index in range(len(link_weights)):
+            passenger_flow_variables[origin, link_index] = LpVariable(
+                lowBound=0, upBound=None, e=None, cat=pl.const.LpContinuous, name=f"{origin}-{link_index}"
             )
     return passenger_flow_variables
 
 
+def _add_objective(data: LPPData, model: pl.LpProblem, variables: _LPPVariables) -> None:
+    weights = calculate_activity_weights(data.network, data.parameters)
+    passenger_part = sum(weights[i] * variable for (_, i), variable in variables.passenger_flow.items())
+    vehicle_part = []
+    for (line_index, line_freq), variable in variables.line_configuration.items():
+        circulation_time = _calculate_minimal_circulation_time(
+            data.scenario.bus_lines[line_index - 1], data.parameters.dwell_time_at_terminal
+        )
+        cost = (
+                _calculate_number_of_required_vehicles(line_freq, circulation_time, data.parameters.period_duration)
+                * data.parameters.vehicle_cost_per_period
+        )
+        vehicle_part.append(cost * variable)
+    model.objective = passenger_part + sum(vehicle_part)
+
+
 def calculate_activity_weights(
-    line_planning_network: LinePlanningNetwork, parameters: LinePlanningParameters
+        line_planning_network: LinePlanningNetwork, parameters: LinePlanningParameters
 ) -> tuple[float, ...]:
     weights = []
     for link in line_planning_network.all_links:
@@ -201,31 +219,36 @@ def calculate_activity_weights(
     return tuple(weights)
 
 
-def _add_capacity_constraints(model: grb.Model, variables: _LPPVariables, data: LPPData) -> None:
+def _add_capacity_constraints(model: pl.LpProblem, variables: _LPPVariables, data: LPPData) -> None:
     line_lookup = {line.number: line for line in data.scenario.bus_lines}
+    pax_lookup = defaultdict(list)
+    for (_, edge_index), variable in variables.passenger_flow.items():
+        pax_lookup[edge_index].append(variable)
     for i, link in enumerate(data.network.all_links):
         if link.activity == Activity.IN_VEHICLE and link.line_id is not None:
             line = line_lookup[link.line_id]
-            all_flows_over_this_link = grb.quicksum(variables.passenger_flow.select("*", i))
-            all_capacities_for_this_link = grb.quicksum(
+            all_flows_over_this_link = pl.lpSum(pax_lookup[i])
+            all_capacities_for_this_link = pl.lpSum(
                 variables.line_configuration[line.number, frequency] * line.regular_capacity * frequency
                 for frequency in line.permitted_frequencies
             )
-            model.addConstr(all_flows_over_this_link <= all_capacities_for_this_link, name=f"cap{line.number}@{i}")
+            pl.LpConstraint(all_flows_over_this_link <= all_capacities_for_this_link, name=f"cap{line.number}@{i}")
             continue
 
         if link.activity == Activity.ACCESS_LINE and link.line_id is not None:
             line = line_lookup[link.line_id]
             frequency = link.frequency
-            all_flows_over_this_link = grb.quicksum(variables.passenger_flow.select("*", i))
+            if frequency is None:
+                raise ValueError(f"f{link} does not have a frequency {link.frequency}")
+            all_flows_over_this_link = pl.lpSum(pax_lookup[i])
             capacity_for_this_link = (
-                variables.line_configuration[line.number, frequency] * line.regular_capacity * frequency
+                    variables.line_configuration[line.number, frequency] * line.regular_capacity * frequency
             )
-            model.addConstr(all_flows_over_this_link <= capacity_for_this_link, name=f"cap{line.number}@{i}")
+            model.addConstraint(all_flows_over_this_link <= capacity_for_this_link, name=f"cap{line.number}@{i}")
             continue
 
 
-def _add_flow_conservation_constraints(model: grb.Model, variables: _LPPVariables, data: LPPData) -> None:
+def _add_flow_conservation_constraints(model: pl.LpProblem, variables: _LPPVariables, data: LPPData) -> None:
     lpp_network = data.network
     lpp_graph = data.network.graph
     node_incidences = [
@@ -240,20 +263,24 @@ def _add_flow_conservation_constraints(model: grb.Model, variables: _LPPVariable
         origin_index = lpp_graph.vs.find(name=lpp_network.access_node_name_from_station_name(origin)).index
         flow_balance_at_nodes[origin_index] = -sum(flow_balance_at_nodes)
         for flow_balance, (incoming_indices, outgoing_indices) in zip(flow_balance_at_nodes, node_incidences):
-            model.addConstr(
-                grb.quicksum(variables.passenger_flow[origin, i] for i in incoming_indices)
-                - grb.quicksum(variables.passenger_flow[origin, i] for i in outgoing_indices)
-                == -flow_balance,
-                name="flow_balance",
+            model.addConstraint(
+                pl.LpConstraint(
+                    pl.lpSum(variables.passenger_flow[origin, i] for i in incoming_indices)
+                    - pl.lpSum(variables.passenger_flow[origin, i] for i in outgoing_indices)
+                    == -flow_balance
+                )
             )
 
 
-def _add_at_most_one_config_per_line_allowed(model: grb.Model, variables: _LPPVariables, data: LPPData) -> None:
+def _add_at_most_one_config_per_line_allowed(model: pl.LpProblem, variables: _LPPVariables, data: LPPData) -> None:
+    configurations_by_line = defaultdict(list)
+    for (line_id, _), variable in variables.line_configuration.items():
+        configurations_by_line[line_id].append(variable)
     for line in data.scenario.bus_lines:
-        model.addConstr(grb.quicksum(variables.line_configuration.select(line.number, "*")) <= 1)
+        model.addConstraint(pl.lpSum(configurations_by_line[line.number]) <= 1)
 
 
-def _restrict_the_number_of_vehicles(model: grb.Model, variables: _LPPVariables, data: LPPData) -> None:
+def _restrict_the_number_of_vehicles(model: pl.LpProblem, variables: _LPPVariables, data: LPPData) -> None:
     line_configuration_variables = variables.line_configuration
     parameters = data.parameters
     required_vehicles_when_selected = []
@@ -266,4 +293,4 @@ def _restrict_the_number_of_vehicles(model: grb.Model, variables: _LPPVariables,
             required_vehicles_when_selected.append(
                 line_configuration_variables[line.number, frequency] * required_circulations
             )
-    model.addConstr(grb.quicksum(required_vehicles_when_selected) <= parameters.maximal_number_of_vehicles)
+    model.addConstraint(pl.lpSum(required_vehicles_when_selected) <= parameters.maximal_number_of_vehicles)

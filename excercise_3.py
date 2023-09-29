@@ -112,5 +112,5 @@ def do_the_line_planning(do_plot: bool) -> None:
     warnings.warn(f"lpp is not optimal, adjust {planning_data.parameters}")
 
 
-if __name__ == "__main__":
-    do_the_line_planning(do_plot=False)
+# if __name__ == "__main__":
+#    do_the_line_planning(do_plot=False)

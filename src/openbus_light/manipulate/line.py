@@ -23,8 +23,8 @@ class LineFactory:
     regular_capacity: int
     permitted_frequencies: tuple[int, ...]
 
-    def create_line_from_json(self, json_data: dict[Any, Any]) -> BusLine:
-        number = int(json_data["nummer"])
+    def create_line_from_json(self, idx: int, json_data: dict[Any, Any]) -> BusLine:
+        line_name = str(json_data["nummer"])
 
         direction_a = Direction(
             station_names=tuple(map(str, json_data["linie_a"])),
@@ -43,15 +43,15 @@ class LineFactory:
         if not direction_b.station_count == json_data["stops_b"]:
             raise RuntimeError("Import failed due to inconsistent number of stops")
 
-        return BusLine(number, direction_a, direction_b, self.regular_capacity, self.permitted_frequencies)
+        return BusLine(idx, line_name, direction_a, direction_b, self.regular_capacity, self.permitted_frequencies)
 
 
 def load_lines_from_json(line_factory: LineFactory, path_to_lines: str) -> tuple[BusLine, ...]:
     loaded_lines: list[BusLine] = []
     all_files_to_load = glob.glob(os.path.join(path_to_lines, "*.json"))
-    for line_to_load in tqdm(all_files_to_load, desc="importing lines", colour="green"):
+    for i, line_to_load in enumerate(tqdm(all_files_to_load, desc="importing lines", colour="green")):
         with open(line_to_load, encoding="utf-8") as json_file:
-            loaded_lines.append(line_factory.create_line_from_json(json.load(json_file)))
+            loaded_lines.append(line_factory.create_line_from_json(i, json.load(json_file)))
     return tuple(loaded_lines)
 
 
