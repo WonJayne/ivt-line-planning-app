@@ -66,8 +66,8 @@ def update_capacities(scenario: PlanningScenario, new_capacities_by_line_nr: Map
 
 
 def update_scenario(baseline_scenario: PlanningScenario) -> PlanningScenario:
-    new_frequencies_by_line_id = {1: (6,), 2: (6,), 3: (6,), 4: (6,), 5: (6,), 7: (5,), 9: (8,), 10: (6,)}
-    new_capacities_by_line_id = {1: 100, 2: 100, 3: 65, 4: 65, 5: 65, 7: 65, 9: 40, 10: 40}
+    new_frequencies_by_line_id = {0: (6,), 1: (6,), 2: (6,), 3: (6,), 4: (6,), 5: (5,), 6: (8,), 7: (6,)}
+    new_capacities_by_line_id = {0: 100, 1: 100, 2: 65, 3: 65, 4: 65, 5: 65, 6: 40, 7: 40}
     updated_scenario = update_capacities(baseline_scenario, new_capacities_by_line_id)
     return update_frequencies(updated_scenario, new_frequencies_by_line_id)
 
@@ -112,5 +112,5 @@ def do_the_line_planning(do_plot: bool) -> None:
     warnings.warn(f"lpp is not optimal, adjust {planning_data.parameters}")
 
 
-# if __name__ == "__main__":
-#    do_the_line_planning(do_plot=False)
+if __name__ == "__main__":
+    do_the_line_planning(do_plot=False)

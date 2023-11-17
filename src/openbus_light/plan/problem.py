@@ -9,6 +9,7 @@ from typing import Collection, NamedTuple
 import numpy as np
 import pulp as pl
 from pulp import LpVariable
+from tqdm import tqdm
 
 from ..model import BusLine, Direction, PlanningScenario
 from ..utils import pairwise
@@ -35,6 +36,9 @@ class LPP:
     _data: LPPData
 
     def solve(self) -> None:
+        """
+        solves the mixed integer linear program, if it infeasible, the model is written to a file
+        """
         self._model.solve()
         if self._model.status == pl.LpStatusInfeasible:
             self._model.writeLP(f"{self.__class__.__name__}.lp")
@@ -64,7 +68,7 @@ class LPP:
 
     @staticmethod
     def _accumulate_flows_per_edge_index(
-            passenger_flows: dict[tuple[str, int], float]
+        passenger_flows: dict[tuple[str, int], float]
     ) -> defaultdict[int, list[float]]:
         accumulated_passenger_flows = defaultdict(list)
         for (_, edge_index), flow in passenger_flows.items():
@@ -81,6 +85,11 @@ class LPP:
         )
 
     def _calculate_number_of_used_vehicles(self, active_lines: Collection[BusLine]) -> int:
+        """
+        calculates the number of used vehicles for all active lines in the solution
+        :param active_lines: Collection[BusLine], the active lines in the solution
+        :return: int, the number of used vehicles
+        """
         parameters = self._data.parameters
         return sum(
             _calculate_number_of_required_vehicles(
@@ -92,7 +101,7 @@ class LPP:
         )
 
     def _extract_passengers_per_link(
-            self,
+        self,
     ) -> MappingProxyType[BusLine, MappingProxyType[Direction, tuple[PassengersPerLink, ...]]]:
         create_line_node_name = self._data.network.create_line_node_name
         flows = self._get_passenger_flow_values()
@@ -125,6 +134,11 @@ class LPP:
 
 
 def create_line_planning_problem(lpp_data: LPPData) -> LPP:
+    """
+    creates the line planning problem, i.e. the mixed integer linear program
+    :param lpp_data: LPPData, the data for the line planning problem
+    :return: LPP (Line Planning Problem), the mixed integer linear program
+    """
     lpp_model = pl.LpProblem()
     lpp_variables = _add_variables(lpp_data)
     _add_constraints(lpp_data, lpp_model, lpp_variables)
@@ -133,6 +147,13 @@ def create_line_planning_problem(lpp_data: LPPData) -> LPP:
 
 
 def _add_constraints(lpp_data: LPPData, lpp_model: pl.LpProblem, lpp_variables: _LPPVariables) -> None:
+    """
+    adds all constraints to the mixed integer linear program
+    :return: None
+    :param lpp_data: LPPData, the data for the line planning problem
+    :param lpp_model: LpProblem (pulp) the model to which the constraints are added
+    :param lpp_variables: _LPPVariables, the variables of the line planning problem
+    """
     _add_flow_conservation_constraints(lpp_model, lpp_variables, lpp_data)
     _add_capacity_constraints(lpp_model, lpp_variables, lpp_data)
     _add_at_most_one_config_per_line_allowed(lpp_model, lpp_variables, lpp_data)
@@ -157,7 +178,7 @@ def _add_line_configuration_variables(data: LPPData) -> dict[tuple[int, int], Lp
 
 
 def _calculate_number_of_required_vehicles(
-        frequency: int, minimal_circulation_time: timedelta, period_duration: timedelta
+    frequency: int, minimal_circulation_time: timedelta, period_duration: timedelta
 ) -> int:
     return ceil(minimal_circulation_time.total_seconds() / period_duration.total_seconds() * frequency)
 
@@ -183,22 +204,22 @@ def _add_passenger_flow_variables(line_planning_data: LPPData) -> dict[tuple[str
 
 def _add_objective(data: LPPData, model: pl.LpProblem, variables: _LPPVariables) -> None:
     weights = calculate_activity_weights(data.network, data.parameters)
-    passenger_part = sum(weights[i] * variable for (_, i), variable in variables.passenger_flow.items())
-    vehicle_part = []
-    for (line_index, line_freq), variable in variables.line_configuration.items():
+    passenger_part = pl.lpSum(weights[i] * variable for (_, i), variable in variables.passenger_flow.items())
+    vehicle_part = 0
+    for (line_index, line_freq), variable in tqdm(variables.line_configuration.items(), desc="adding objective"):
         circulation_time = _calculate_minimal_circulation_time(
             data.scenario.bus_lines[line_index - 1], data.parameters.dwell_time_at_terminal
         )
-        cost = (
-                _calculate_number_of_required_vehicles(line_freq, circulation_time, data.parameters.period_duration)
-                * data.parameters.vehicle_cost_per_period
+        vehicle_part += (
+            _calculate_number_of_required_vehicles(line_freq, circulation_time, data.parameters.period_duration)
+            * data.parameters.vehicle_cost_per_period
+            * variable
         )
-        vehicle_part.append(cost * variable)
-    model.objective = passenger_part + sum(vehicle_part)
+    model.objective = passenger_part + vehicle_part
 
 
 def calculate_activity_weights(
-        line_planning_network: LinePlanningNetwork, parameters: LinePlanningParameters
+    line_planning_network: LinePlanningNetwork, parameters: LinePlanningParameters
 ) -> tuple[float, ...]:
     weights = []
     for link in line_planning_network.all_links:
@@ -224,7 +245,7 @@ def _add_capacity_constraints(model: pl.LpProblem, variables: _LPPVariables, dat
     pax_lookup = defaultdict(list)
     for (_, edge_index), variable in variables.passenger_flow.items():
         pax_lookup[edge_index].append(variable)
-    for i, link in enumerate(data.network.all_links):
+    for i, link in tqdm(tuple(enumerate(data.network.all_links)), desc="adding capacity constraints"):
         if link.activity == Activity.IN_VEHICLE and link.line_id is not None:
             line = line_lookup[link.line_id]
             all_flows_over_this_link = pl.lpSum(pax_lookup[i])
@@ -232,7 +253,7 @@ def _add_capacity_constraints(model: pl.LpProblem, variables: _LPPVariables, dat
                 variables.line_configuration[line.number, frequency] * line.regular_capacity * frequency
                 for frequency in line.permitted_frequencies
             )
-            pl.LpConstraint(all_flows_over_this_link <= all_capacities_for_this_link, name=f"cap{line.number}@{i}")
+            model.addConstraint(all_flows_over_this_link <= all_capacities_for_this_link, name=f"cap{line.number}@{i}")
             continue
 
         if link.activity == Activity.ACCESS_LINE and link.line_id is not None:
@@ -242,7 +263,7 @@ def _add_capacity_constraints(model: pl.LpProblem, variables: _LPPVariables, dat
                 raise ValueError(f"f{link} does not have a frequency {link.frequency}")
             all_flows_over_this_link = pl.lpSum(pax_lookup[i])
             capacity_for_this_link = (
-                    variables.line_configuration[line.number, frequency] * line.regular_capacity * frequency
+                variables.line_configuration[line.number, frequency] * line.regular_capacity * frequency
             )
             model.addConstraint(all_flows_over_this_link <= capacity_for_this_link, name=f"cap{line.number}@{i}")
             continue
@@ -255,7 +276,7 @@ def _add_flow_conservation_constraints(model: pl.LpProblem, variables: _LPPVaria
         (lpp_graph.incident(i, mode="in"), lpp_graph.incident(i, mode="out")) for i in lpp_graph.vs.indices
     ]
     flow_balance_at_nodes = np.zeros((lpp_graph.vcount(), 1))
-    for origin in data.scenario.demand_matrix.all_origins():
+    for origin in tqdm(data.scenario.demand_matrix.all_origins(), desc="adding flow conservation constraints"):
         flow_balance_at_nodes *= 0
         for station_name, outflow in data.scenario.demand_matrix.matrix[origin].items():
             node_index = lpp_graph.vs.find(name=lpp_network.egress_node_name_from_station_name(station_name)).index
@@ -264,11 +285,9 @@ def _add_flow_conservation_constraints(model: pl.LpProblem, variables: _LPPVaria
         flow_balance_at_nodes[origin_index] = -sum(flow_balance_at_nodes)
         for flow_balance, (incoming_indices, outgoing_indices) in zip(flow_balance_at_nodes, node_incidences):
             model.addConstraint(
-                pl.LpConstraint(
                     pl.lpSum(variables.passenger_flow[origin, i] for i in incoming_indices)
                     - pl.lpSum(variables.passenger_flow[origin, i] for i in outgoing_indices)
                     == -flow_balance
-                )
             )
 
 
