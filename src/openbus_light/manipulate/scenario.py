@@ -13,6 +13,12 @@ from .walkable_distance import find_all_walkable_distances
 
 
 def _drop_stations_that_are_not_served(stations: Sequence[Station], lines: Sequence[BusLine]) -> tuple[Station, ...]:
+    """
+    Drop stations that are not within the served stations.
+    :param stations: Sequence[Station], sequence of Station objects
+    :param lines: Sequence[BusLine], sequence of BusLine objects
+    :return: tuple[Station, ...], tuple of Stations that are served
+    """
     names_of_served_stations = set(
         chain.from_iterable(
             chain.from_iterable((line.direction_a.station_names, line.direction_b.station_names)) for line in lines
@@ -22,6 +28,13 @@ def _drop_stations_that_are_not_served(stations: Sequence[Station], lines: Seque
 
 
 def load_scenario(parameters: LinePlanningParameters, paths: ScenarioPaths) -> PlanningScenario:
+    """
+    Load the scenario of the line planning problem.
+    :param parameters: LinePlanningParameters, parameters for the LP problem
+    :param paths: ScenarioPaths, paths in the scenario
+    :return: PlanningScenario, the LP scenario, described by demand, bus lines, walkable links and
+        served stations
+    """
     line_factory = LineFactory(
         regular_capacity=parameters.vehicle_capacity, permitted_frequencies=parameters.permitted_frequencies
     )

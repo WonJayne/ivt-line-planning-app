@@ -38,37 +38,77 @@ class LinePlanningNetwork:
     graph: igraph.Graph
 
     def __post_init__(self) -> None:
+        """
+        Check whether the graph is directed. If not, raise an error.
+        :return: None
+        """
         if not self.graph.is_directed():
             raise RuntimeError(f"graph of {self} must be directed")
 
     def shallow_copy(self) -> LinePlanningNetwork:
+        """
+        Create a shallow copy of LinePlanningNetwork.
+        :return: LinePlanningNetwork, a copy of the instance
+        """
         return LinePlanningNetwork(self.graph.copy())
 
     @property
     def all_links(self) -> list[LPNLink]:
+        """
+        Access all the links from the network graph.
+        :return: list[LPNLink], a list of LPNLink
+        """
         return self.graph.es[self._link_key()]
 
     @property
     def all_nodes(self) -> list[LPNNode]:
+        """
+        Access all the nodes from the network graph.
+        :return: list[LPNNode], a list of LPNNode
+        """
         return self.graph.vs[self._node_key()]
 
     @property
     def all_node_names(self) -> tuple[str]:
+        """
+        Get the names of all the nodes.
+        :return: tuple[str]
+        """
         return self.graph.vs["name"]
 
     def get_link_index(self, source: str, target: str) -> int:
+        """
+        Get the index of an edge between two vertices.
+        :param source: str, the ID or name of the start vertex
+        :param target: str, the ID or name of the end vertex
+        :return: int, index of the link
+        """
         return self.graph.get_eid(source, target)
 
     @classmethod
     def _node_key(cls) -> str:
+        """
+        Get the name of the node.
+        :return: str, name of the node
+        """
         return LPNNode.__name__
 
     @classmethod
     def _link_key(cls) -> str:
+        """
+        Get the name of the link.
+        :return: str, name of the link
+        """
         return LPNLink.__name__
 
     @classmethod
     def create_from_scenario(cls, scenario: PlanningScenario, period_duration: timedelta) -> LinePlanningNetwork:
+        """
+        Create line planning network with given scenario.
+        :param scenario: PlanningScenario
+        :param period_duration: timedelta, total duration of the planning problem
+        :return: LinePlanningNetwork, network consisting of nodes and links
+        """
         nodes_to_add = set()
         links_to_add: list[tuple[tuple[str, str], LPNLink]] = []
         lines_with_directions = (
@@ -88,6 +128,13 @@ class LinePlanningNetwork:
     def _create_links_for_walkable_distances(
         cls, walkable_distance: WalkableDistance
     ) -> tuple[tuple[tuple[str, str], LPNLink], tuple[tuple[str, str], LPNLink]]:
+        """
+        Create links for walkable distances in the line planning network.
+        :param walkable_distance: WalkableDistance, a class which contains the starting point,
+            ending point and walking time
+        :return: tuple[tuple[tuple[str, str], LPNLink], tuple[tuple[str, str], LPNLink]],
+            a tuple of the source and target nodes along with the LPNLink object in both directions
+        """
         source = cls.transfer_node_name_from_station_name(walkable_distance.starting_at.name)
         target = cls.transfer_node_name_from_station_name(walkable_distance.ending_at.name)
         walking_link = LPNLink(Activity.WALKING, walkable_distance.walking_time, None, None)
@@ -97,6 +144,14 @@ class LinePlanningNetwork:
     def _create_nodes_and_links_for_segment(
         cls, line: BusLine, direction: Direction, period_duration: timedelta
     ) -> tuple[set[LPNNode], tuple[tuple[tuple[str, str], LPNLink], ...]]:
+        """
+        Create nodes and links for the bus line segment in a specific direction.
+        :param line: BusLine
+        :param direction: Direction
+        :param period_duration: timedelta, total duration of the planning problem
+        :return: tuple[set[LPNNode], tuple[tuple[tuple[str, str], LPNLink], ...]],
+            a set of all nodes and a tuple of tuples representing the links to be added to the graph
+        """
         access_nodes, egress_nodes, service_nodes, transfer_nodes = cls._create_nodes_for_direction(direction, line)
         links_to_add: list[tuple[tuple[str, str], LPNLink]] = []
         for frequency in line.permitted_frequencies:
@@ -125,6 +180,13 @@ class LinePlanningNetwork:
     def _create_nodes_for_direction(
         cls, direction: Direction, line: BusLine
     ) -> tuple[tuple[LPNNode, ...], tuple[LPNNode, ...], tuple[LPNNode, ...], tuple[LPNNode, ...]]:
+        """
+        Generate nodes of different purposes for specific busline and direction.
+        :param direction: Direction
+        :param line: BusLine
+        :return: tuple[tuple[LPNNode, ...], tuple[LPNNode, ...], tuple[LPNNode, ...], tuple[LPNNode, ...]],
+            a tuple which contains tuples of 4 types of nodes
+        """
         station_names = direction.station_names
         access_nodes = tuple(
             LPNNode(node_name, None, None) for node_name in map(cls.access_node_name_from_station_name, station_names)
@@ -146,6 +208,12 @@ class LinePlanningNetwork:
     def _create_underlying_digraph(
         cls, nodes: Collection[LPNNode], links_with_s_t: Collection[tuple[tuple[str, str], LPNLink]]
     ) -> igraph.Graph:
+        """
+        Create a directed graph based on the nodes and links.
+        :param nodes: Collection[LPNNode]
+        :param links_with_s_t: Collection[tuple[tuple[str, str], LPNLink]]
+        :return: igraph.Graph, the underlying digraph
+        """
         network = igraph.Graph(directed=True)
         network.add_vertices(
             len(nodes), attributes={"name": [node.name for node in nodes], f"{cls._node_key()}": list(nodes)}
@@ -157,16 +225,38 @@ class LinePlanningNetwork:
 
     @staticmethod
     def access_node_name_from_station_name(station_name: str) -> str:
+        """
+        Generate the names of access nodes.
+        :param station_name: str, station name
+        :return: str, name of the node
+        """
         return f"{Activity.ACCESS_LINE.value}${station_name}"
 
     @staticmethod
     def egress_node_name_from_station_name(station_name: str) -> str:
+        """
+        Generate the names of egress nodes.
+        :param station_name: str, station name
+        :return: str, name of the node
+        """
         return f"{Activity.EGRESS_LINE.value}${station_name}"
 
     @staticmethod
     def transfer_node_name_from_station_name(station_name: str) -> str:
+        """
+        Generate the names of transfer nodes.
+        :param station_name: str, station name
+        :return: str, name of the node
+        """
         return f"{Activity.TRANSFER.value}${station_name}"
 
     @staticmethod
     def create_line_node_name(station_name: str, line: BusLine, direction: Direction) -> str:
+        """
+        Generate the node name associated with the bus line.
+        :param station_name: str, station name
+        :param line: BusLine
+        :param direction: Direction
+        :return: str, name of the node
+        """
         return f"{line.number}-{direction.name}-{station_name}"

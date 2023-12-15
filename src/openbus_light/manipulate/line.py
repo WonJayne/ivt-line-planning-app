@@ -15,6 +15,11 @@ from .direction import update_trip_times
 
 
 def _convert_seconds_to_timedelta(seconds: float) -> timedelta:
+    """
+    Convert seconds to timedelta.
+    :param seconds: float, time in second
+    :return: timedelta
+    """
     return timedelta(seconds=seconds)
 
 
@@ -24,6 +29,13 @@ class LineFactory:
     permitted_frequencies: tuple[int, ...]
 
     def create_line_from_json(self, idx: int, json_data: dict[Any, Any]) -> BusLine:
+        """
+        Create busline information from json. If the number of stations is not consistent, raise error.
+        :param idx: int, the index of bus lines
+        :param json_data: dict[Any, Any], a dict containing data from a JSON representation of a bus line
+        :return: BusLine, object which contains information of index, name of busline, two directions,
+            capacity and frequency of the bus line
+        """
         line_name = str(json_data["nummer"])
 
         direction_a = Direction(
@@ -47,6 +59,12 @@ class LineFactory:
 
 
 def load_lines_from_json(line_factory: LineFactory, path_to_lines: str) -> tuple[BusLine, ...]:
+    """
+    Iterate over each json file and create bus lines from the data.
+    :param line_factory: LineFactory, contains capacity and permitted frequency of lines
+    :param path_to_lines: str, path to the directory containing JSON files with bus line data
+    :return: tuple[BusLine, ...], a tuple containing the loaded BusLine objects
+    """
     loaded_lines: list[BusLine] = []
     all_files_to_load = glob.glob(os.path.join(path_to_lines, "*.json"))
     for i, line_to_load in enumerate(tqdm(all_files_to_load, desc="importing lines", colour="green")):
@@ -56,6 +74,11 @@ def load_lines_from_json(line_factory: LineFactory, path_to_lines: str) -> tuple
 
 
 def _equalise_travel_times_per_link(lines: Sequence[BusLine]) -> tuple[BusLine, ...]:
+    """
+    Equalize the travel times per link across different bus lines with the average travel time.
+    :param lines: Sequence[BusLine], sequence of busline objects
+    :return: tuple[BusLine, ...], a tuple of BusLine objects with equal travel time
+    """
     average_travel_time_per_link = _calculate_average_travel_time_per_link(lines)
     return tuple(
         line._replace(
@@ -67,6 +90,12 @@ def _equalise_travel_times_per_link(lines: Sequence[BusLine]) -> tuple[BusLine, 
 
 
 def _calculate_average_travel_time_per_link(lines: Sequence[BusLine]) -> dict[tuple[str, str], timedelta]:
+    """
+    Calculate the average travel time per link across all the directions of bus lines.
+    :param lines: Sequence[BusLine], sequence of BusLine objects
+    :return: dict[tuple[str, str], timedelta], a dict where key is source and target of the link,
+        and value is the average travel time of the link
+    """
     travel_times_per_link: dict[tuple[str, str], list[float]] = defaultdict(list)
     for direction in chain.from_iterable((line.direction_a, line.direction_b) for line in lines):
         for (source, target), time_delta in direction.trip_time_per_stop_pair():

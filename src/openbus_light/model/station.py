@@ -15,4 +15,8 @@ class Station:
 
     @cached_property
     def center_position(self) -> PointIn2D:
+        """
+        Get the geometry of center position of the station.
+        :return: PointIn2D, geometry of the center point
+        """
         return PointIn2D(lat=mean(p.lat for p in self.points), long=mean(p.long for p in self.points))

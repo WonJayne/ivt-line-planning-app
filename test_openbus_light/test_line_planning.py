@@ -18,6 +18,10 @@ from openbus_light.plan.network import Activity
 
 
 def _create_non_walking_scenario() -> PlanningScenario:
+    """
+    Generate a simple non-walking scenario with fictional stations, bus lines and demand.
+    :return: PlanningScenario
+    """
     stations = (
         Station("A", tuple(), (1, 2), [], []),
         Station("B", tuple(), (1,), [], []),
@@ -51,6 +55,10 @@ def _create_non_walking_scenario() -> PlanningScenario:
 
 
 def _create_only_walking_scenario() -> PlanningScenario:
+    """
+    Generate a planning scenario where walking is the only available mode.
+    :return: PlanningScenario
+    """
     stations = (
         Station("A", tuple(), (1,), [], []),
         Station("B", tuple(), (1,), [], []),
@@ -79,6 +87,12 @@ def _create_only_walking_scenario() -> PlanningScenario:
 
 
 def _solve_this_lpp(parameters: LinePlanningParameters, scenario: PlanningScenario) -> LPPResult:
+    """
+    Create line planning problem based on LPP Data, and solve the problem.
+    :param parameters: LinePlanningParameters
+    :param scenario: PlanningScenario
+    :return: LPPResult, result of the LP Problem
+    """
     planning_data = LPPData(
         parameters, scenario, LinePlanningNetwork.create_from_scenario(scenario, parameters.period_duration)
     )
@@ -88,6 +102,11 @@ def _solve_this_lpp(parameters: LinePlanningParameters, scenario: PlanningScenar
 
 
 def _calculate_number_of_vehicles(scenario_with_frequency_1: PlanningScenario) -> int:
+    """
+    Calculate the number of vehicles needed to serve a planning scenario with frequency of 1.
+    :param scenario_with_frequency_1: PlanningScenario, where frequency is 1
+    :return: int, number of vehicles needed to serve in the scenario
+    """
     return sum(
         ceil(
             (
@@ -103,11 +122,20 @@ def _calculate_number_of_vehicles(scenario_with_frequency_1: PlanningScenario) -
 
 
 def _calculate_total_passenger_count(non_walking_scenario: PlanningScenario) -> float:
+    """
+    Calculate the total number of passengers (i.e. demand values) in a non-walking scenario.
+    :param non_walking_scenario: PlanningScenario
+    :return: float, the total passenger demand
+    """
     return sum(sum(from_here.values()) for from_here in non_walking_scenario.demand_matrix.matrix.values())
 
 
 class LinePlanningTestCase(unittest.TestCase):
     def test_with_walking(self) -> None:
+        """
+        Compare the results of two different scenarios either favoring vehicles or walking.
+        Check in line-favored solution, whether the weighted travel time for walking is 0, and vice versa.
+        """
         parameters_favoring_vehicle = test_parameters()._replace(
             waiting_time_weight=0, in_vehicle_time_weight=1 / 300, walking_time_weight=1, vehicle_cost_per_period=0
         )
@@ -132,6 +160,10 @@ class LinePlanningTestCase(unittest.TestCase):
         )
 
     def test_with_walking_and_no_vehicles(self) -> None:
+        """
+        Test scenarios where there are no vehicles or vehicles with zero capacity. Assert that under
+            these scenarios, optimization should not succeed.
+        """
         scenario = _create_non_walking_scenario()
         zero_capacity_scenario = scenario._replace(
             bus_lines=tuple(line._replace(regular_capacity=0) for line in scenario.bus_lines)
@@ -145,6 +177,10 @@ class LinePlanningTestCase(unittest.TestCase):
         self.assertFalse(zero_vehicles_result.success)
 
     def test_zero_frequency_case(self) -> None:
+        """
+        Test scenario where the permitted frequency is 0, and assert that under such scenario,
+            ´´ZeroDivisionError´´ is raised.
+        """
         non_walking_scenario = _create_non_walking_scenario()
         zero_frequency_scenario = non_walking_scenario._replace(
             bus_lines=tuple(line._replace(permitted_frequencies=(0,)) for line in non_walking_scenario.bus_lines)
@@ -154,6 +190,10 @@ class LinePlanningTestCase(unittest.TestCase):
             _solve_this_lpp(test_parameters(), zero_frequency_scenario)
 
     def test_with_simple_plan(self) -> None:
+        """
+        Test the parameters favoring walking in a non-walking scenario. Assert that KeyError is
+            raised when attempting to access the weighted travel time for walking.
+        """
         parameters_favoring_walking = test_parameters()._replace(
             waiting_time_weight=1 / 900,
             in_vehicle_time_weight=1 / 300,
@@ -184,11 +224,17 @@ class LinePlanningIntegrationTestCase(unittest.TestCase):
     _baseline_scenario: PlanningScenario
 
     def setUp(self) -> None:
+        """
+        Remove the demand matrix for origins starting from the 11th position onward.
+        """
         self._baseline_scenario = copy(cached_scenario())
         for origin in sorted(self._baseline_scenario.demand_matrix.all_origins())[10:]:
             self._baseline_scenario.demand_matrix.matrix.pop(origin)
 
     def test_frequency_dependence(self) -> None:
+        """
+        Test the changing of frequency has an impact on waiting time.
+        """
         scenario_with_frequency_2 = self._baseline_scenario._replace(
             bus_lines=tuple(line._replace(permitted_frequencies=(20,)) for line in self._baseline_scenario.bus_lines)
         )
@@ -228,6 +274,9 @@ class LinePlanningIntegrationTestCase(unittest.TestCase):
         self.assertEqual(result_with_2.solution.used_vehicles, _calculate_number_of_vehicles(scenario_with_frequency_2))
 
     def test_frequency_independence(self) -> None:
+        """
+        Test that the changing of frequency does not have an impact on in-vehicle time and walking time.
+        """
         scenario_with_frequency_2 = self._baseline_scenario._replace(
             bus_lines=tuple(line._replace(permitted_frequencies=(20,)) for line in self._baseline_scenario.bus_lines)
         )

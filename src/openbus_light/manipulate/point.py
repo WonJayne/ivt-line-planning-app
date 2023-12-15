@@ -9,6 +9,12 @@ R = 6373000.0
 
 @njit(cache=True)
 def calculate_distance_in_m(point_1: PointIn2D, point_2: PointIn2D) -> float:
+    """
+    Calculate the Haversine distance between two points.
+    :param point_1: PointIn2D, coordinate of the first point
+    :param point_2: PointIn2D, coordinate ot the second point
+    :return: float, distance between points
+    """
     d_lon = radians(point_2.long) - radians(point_1.long)  # lon2 - lon1
     d_lat = radians(point_2.lat) - radians(point_1.lat)  # lat2 - lat1
 

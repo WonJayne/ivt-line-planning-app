@@ -10,6 +10,12 @@ from ..utils import skip_one_line_in_file
 
 
 def load_served_stations(path_to_stations: str, lines: Collection[BusLine]) -> tuple[Station, ...]:
+    """
+    Load served stations and the coordinates.
+    :param path_to_stations: str, name of file with contains station information
+    :param lines: Collection[BusLine], collection of bus lines
+    :return: tuple[Station, ...], served stations with their coordinates
+    """
     served_station_names = set(
         chain.from_iterable(
             chain.from_iterable((line.direction_a.station_names, line.direction_b.station_names)) for line in lines

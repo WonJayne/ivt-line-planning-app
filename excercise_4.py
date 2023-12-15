@@ -12,6 +12,11 @@ from openbus_light.model import BusLine, RecordedTrip
 
 
 def calculate_trip_times(recorded_trip: RecordedTrip) -> pd.DataFrame:
+    """
+    Calculate the planned and observed trip times between consecutive stops in a recorded trip.
+    :param recorded_trip: RecordedTrip, contains trip information
+    :return: pd.DataFrame, contains two columns, each recording the planned and observed trip time
+    """
     trip_time_planned = (
         arrival - departure
         for departure, arrival in zip(
@@ -28,6 +33,11 @@ def calculate_trip_times(recorded_trip: RecordedTrip) -> pd.DataFrame:
 
 
 def calculate_dwell_times(recorded_trip: RecordedTrip) -> DataFrame:
+    """
+    Calculate the planned and observed dwell time at each stop in a recorded trip.
+    :param recorded_trip: RecordedTrip, contains trip information
+    :return: DataFrame, contains two columns, each recording the planned and observed dwell time
+    """
     dwell_time_planned = (
         departure - arrival
         for arrival, departure in zip(
@@ -44,6 +54,12 @@ def calculate_dwell_times(recorded_trip: RecordedTrip) -> DataFrame:
 
 
 def load_bus_lines_with_measurements(selected_line_numbers: frozenset[int]) -> tuple[BusLine, ...]:
+    """
+    Load the bus lines with recorded measurements, enrich lines with recorded trips,
+        and cache the result.
+    :param selected_line_numbers: frozenset[int], numbers of the bus lines
+    :return: tuple[BusLine, ...], enriched bus lines
+    """
     cache_key = "$".join(map(str, sorted(selected_line_numbers)))
     cache_filename = os.path.join(tempfile.gettempdir(), ".open_bus_light_cache", f"{cache_key}.pickle")
     if os.path.exists(cache_filename):
@@ -63,6 +79,10 @@ def load_bus_lines_with_measurements(selected_line_numbers: frozenset[int]) -> t
 
 
 def analysis(selected_line_numbers: frozenset[int]) -> None:
+    """
+    Calculate the trip times and dwell times of the bus lines and their trips.
+    :param selected_line_numbers: frozenset[int], bus line numbers
+    """
     lines_with_recordings = load_bus_lines_with_measurements(selected_line_numbers)
     for line in lines_with_recordings:
         for direction in (line.direction_a, line.direction_b):

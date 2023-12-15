@@ -12,6 +12,13 @@ from ..utils import pairwise, skip_one_line_in_file
 
 
 def enrich_lines_with_recorded_trips(path: str, lines: Collection[BusLine]) -> tuple[BusLine, ...]:
+    """
+    Enrich lines by converting specified columns to datetime format, and adding recorded trips
+        in the directions of bus lines.
+    :param path: str, path to the file
+    :param lines: Collection[BusLine], collection of bus lines
+    :return: tuple[BusLine], a tuple of enriched BusLines
+    """
     with open(path, encoding="utf-8", mode="r") as file_handle:
         skip_one_line_in_file(file_handle)
         raw_measurements = pd.read_csv(file_handle, sep=";", encoding="utf-8", dtype=str)
@@ -34,20 +41,43 @@ def enrich_lines_with_recorded_trips(path: str, lines: Collection[BusLine]) -> t
 def _convert_these_columns_to_datetime(
     data_frame: pd.DataFrame, columns: Iterable[str], datetime_format: Optional[str]
 ) -> pd.DataFrame:
+    """
+    Convert specified columns to datetime format. Parsing errors are set to NaT.
+    :param data_frame: pd.DataFrame, dataframe of bus line information
+    :param columns: Iterable[str], iterable of names of the column that need to be converted to datetime
+    :param datetime_format: Optional[str], specified format of the datetime, that guides the conversion
+    :return: pd.DataFrame, dataframe with specified columns converted to datetime
+    """
     for column in columns:
         data_frame[column] = pd.to_datetime(data_frame[column], errors="coerce", format=datetime_format)
     return data_frame
 
 
 def __is_the_start_of_a_run(row_as_tuple: tuple[Any, ...]) -> bool:
+    """
+    Check whether a row is the start of the run by checking whether the ''ANKUNFTSZEIT'' is null,
+        because at the start of a run, the arrival time is usually not recorded.
+    :param row_as_tuple: tuple[Any, ...], tuple that represents a row from a dataframe
+    :return: bool, True indicates that the row is the start of the run
+    """
     return pd.isnull(row_as_tuple.ANKUNFTSZEIT)  # type: ignore
 
 
 def __is_the_end_of_a_run(row_as_tuple: tuple[Any, ...]) -> bool:
+    """
+    Check whether a row is the start of the run by checking whether the ''ABFAHRTSZEIT'' is null.
+    :param row_as_tuple: tuple[Any, ...], tuple that represents a row from a dataframe
+    :return: bool, True indicates that the row is the end of the run
+    """
     return pd.isnull(row_as_tuple.ABFAHRTSZEIT)  # type: ignore
 
 
 def _find_index_of_start_and_end_pairs(measurements: pd.DataFrame) -> tuple[tuple[int, int], ...]:
+    """
+    Find the pair of indices of start and end of a run.
+    :param measurements: pd.DataFrame, dataframe containing information of the run
+    :return: tuple[tuple[int, int], ...], tuple of pairs of start and end index
+    """
     class _Event(IntEnum):
         START = 1
         END = -1
@@ -71,6 +101,14 @@ def _find_index_of_start_and_end_pairs(measurements: pd.DataFrame) -> tuple[tupl
 def _extract_recorded_trips(
     line_nr: int, measurements: pd.DataFrame, pairs: Collection[tuple[int, int]]
 ) -> dict[tuple[str, str], tuple[RecordedTrip, ...]]:
+    """
+    Extract recorded trips of a specific bus line.
+    :param line_nr: int, bus line number
+    :param measurements: pd.DataFrame, dataframe containing trips information
+    :param pairs: Collection[tuple[int, int]], a collection of start and end indices of run
+    :return: dict[tuple[str, str], tuple[RecordedTrip, ...]], a dict where the key is the
+        start and end of a trip, and the value is tuple of RecordedTrip
+    """
     recorded_trips_by_start_end = defaultdict(list)
 
     for begin, end in pairs:
@@ -88,7 +126,7 @@ def _extract_recorded_trips(
                     "departure_planned": row.ABFAHRTSZEIT,
                     "departure_observed": row.AB_PROGNOSE,
                 }
-                for row in measurements[begin : end + 1].itertuples(index=False)
+                for row in measurements[begin: end + 1].itertuples(index=False)
             ),
         )
         recorded_trips_by_start_end[(recorded_trip.start, recorded_trip.end)].append(recorded_trip)
@@ -97,6 +135,12 @@ def _extract_recorded_trips(
 
 
 def __get_stop_name_order(direction: Direction) -> dict[str, int]:
+    """
+    Get the order of station names in the direction.
+    :param direction: Direction, direction of the bus line
+    :return: dict[str, int], a dict where the key is the station name, and value is its order in the
+        direction
+    """
     count = 0
     return {name: (count := count + 1) for name in direction.station_names}
 
@@ -104,6 +148,17 @@ def __get_stop_name_order(direction: Direction) -> dict[str, int]:
 def _assign_recorded_trips_to_directions(
     line: BusLine, recorded_trips: Mapping[tuple[str, str], Sequence[RecordedTrip]]
 ) -> tuple[tuple[RecordedTrip, ...], tuple[RecordedTrip, ...], tuple[RecordedTrip, ...]]:
+    """
+    Assign recorded trips to directions, if the order of start station is smaller than
+        the order of end station in direction a, the trip is assigned to direction a.
+        Likewise for direction b.
+    :param line: BusLine
+    :param recorded_trips: Mapping[tuple[str, str], Sequence[RecordedTrip]], start station
+        and end station with recorded trips between the stations
+    :return: tuple[tuple[RecordedTrip, ...], tuple[RecordedTrip, ...], tuple[RecordedTrip, ...]],
+        contains a tuple for recorded trips in direction a, a tuple for direction b, and a tuple
+        for missed trips
+    """
     stops_order_direction_a = __get_stop_name_order(line.direction_a)
     stop_order_direction_b = __get_stop_name_order(line.direction_b)
 
@@ -134,6 +189,12 @@ def _assign_recorded_trips_to_directions(
 
 
 def _add_recorded_trips_to_line(line: BusLine, raw_recordings: pd.DataFrame) -> BusLine:
+    """
+    Add recorded trips to the corresponding direction of the bus line.
+    :param line: BusLine
+    :param raw_recordings: pd.DataFrame, dataframe containing trips information
+    :return: BusLine, bus line with recorded trips added in the directions
+    """
     index_pairs = _find_index_of_start_and_end_pairs(raw_recordings)
     recorded_trips = _extract_recorded_trips(line.number, raw_recordings, index_pairs)
     in_direction_a, in_direction_b, no_direction = _assign_recorded_trips_to_directions(line, recorded_trips)

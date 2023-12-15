@@ -37,18 +37,30 @@ class LPP:
 
     def solve(self) -> None:
         """
-        solves the mixed integer linear program, if it infeasible, the model is written to a file
+        Solve the mixed integer linear program.
+        If it is infeasible, the model is written to a file.
         """
         self._model.solve()
         if self._model.status == pl.LpStatusInfeasible:
             self._model.writeLP(f"{self.__class__.__name__}.lp")
 
     def get_result(self) -> LPPResult:
+        """
+        Get the result of the mixed integer linear program.
+        If no optimal solution is available, error or failure is indicated.
+        :return: LPPResult, the overall result or outcome of the problem
+        """
         if self._model.status == pl.LpStatusOptimal:
             return LPPResult.from_success(self._get_solution())
         return LPPResult.from_error()
 
     def _get_solution(self) -> LPPSolution:
+        """
+        Get the solution of the mixed integer linear program.
+        Extract the active bus lines in the scenario, and calculate the values
+            of decision variables that optimize the result.
+        :return: LPPSolution, the values of decision variables
+        """
         active_lines = self._extract_active_lines()
         return LPPSolution(
             weighted_travel_time=self._calculate_weighted_travel_times(),
@@ -58,6 +70,12 @@ class LPP:
         )
 
     def _calculate_weighted_travel_times(self) -> MappingProxyType[Activity, timedelta]:
+        """
+        Calculate the weighted travel time of different activities (i.e. access
+            time, in-vehicle time, egress time etc).
+        :return: MappingProxyType[Activity, timedelta], an immutable mapping of
+            activities and their travel times
+        """
         cumulated_flows: dict[Activity, float] = defaultdict(float)
         weights = calculate_activity_weights(self._data.network, self._data.parameters)
         links = self._data.network.all_links
@@ -70,12 +88,26 @@ class LPP:
     def _accumulate_flows_per_edge_index(
         passenger_flows: dict[tuple[str, int], float]
     ) -> defaultdict[int, list[float]]:
+        """
+        Accumulate the passenger flows by edge.
+        :param passenger_flows: dict[tuple[str, int], float], a dictionary of
+            edge and flows on that edge
+        :return: default-dict[int, list[float]], a default-dict of edge index
+            and the list of passenger flows on the edge
+        """
         accumulated_passenger_flows = defaultdict(list)
         for (_, edge_index), flow in passenger_flows.items():
             accumulated_passenger_flows[edge_index].append(flow)
         return accumulated_passenger_flows
 
     def _extract_active_lines(self) -> tuple[BusLine, ...]:
+        """
+        Extract the active lines, which is determined by the value of ``is_selected``
+            in ``selected_line_configurations``. If a line is selected, replace the
+            value of attribute ``permitted_frequencies`` with a tuple.
+        :return: tuple[BusLine, ...], a tuple of modified ``BusLine`` objects for lines
+            that are extracted
+        """
         line_lookup: dict[int, BusLine] = {line.number: line for line in self._data.scenario.bus_lines}
         selected_line_configurations = self._get_line_activation_values()
         return tuple(
@@ -86,7 +118,7 @@ class LPP:
 
     def _calculate_number_of_used_vehicles(self, active_lines: Collection[BusLine]) -> int:
         """
-        calculates the number of used vehicles for all active lines in the solution
+        Calculate the number of used vehicles for all active lines in the solution.
         :param active_lines: Collection[BusLine], the active lines in the solution
         :return: int, the number of used vehicles
         """
@@ -103,6 +135,11 @@ class LPP:
     def _extract_passengers_per_link(
         self,
     ) -> MappingProxyType[BusLine, MappingProxyType[Direction, tuple[PassengersPerLink, ...]]]:
+        """
+        Calculate the passenger count per link for each direction of each bus line.
+        :return: MappingProxyType[BusLine, MappingProxyType[Direction, tuple[PassengersPerLink, ...]]],
+            a read-only nested dict which indexes the passenger count by bus lines and two directions.
+        """
         create_line_node_name = self._data.network.create_line_node_name
         flows = self._get_passenger_flow_values()
         passengers_per_line: dict[BusLine, dict[Direction, tuple[PassengersPerLink, ...]]] = {}
@@ -124,18 +161,33 @@ class LPP:
         return MappingProxyType({key: MappingProxyType(value) for key, value in passengers_per_line.items()})
 
     def _get_network_link_index(self, source: str, target: str) -> int:
+        """
+        Get the index of a link in the network from the vertices of the link.
+        :param source: the ID or name of the start vertex
+        :param target: the ID or name of the end vertex
+        :return: int, the link index
+        """
         return self._data.network.get_link_index(source=source, target=target)
 
     def _get_line_activation_values(self) -> dict[tuple[int, int], float]:
+        """
+        Get the activation value of lines. If value > 0.5, it's an active line, otherwise not active.
+        :return: dict[tuple[int, int], float], a dict of the line numbers and the values that determine
+            if a line is active
+        """
         return {key: var.varValue for key, var in self._variables.line_configuration.items()}
 
     def _get_passenger_flow_values(self) -> dict[tuple[str, int], float]:
+        """
+        Get passenger flows on each edge.
+        :return: dict[tuple[str, int], float], a dict of edge index and passenger flows on it
+        """
         return {key: var.varValue for key, var in self._variables.passenger_flow.items()}
 
 
 def create_line_planning_problem(lpp_data: LPPData) -> LPP:
     """
-    creates the line planning problem, i.e. the mixed integer linear program
+    Create the line planning problem, i.e. the mixed integer linear program.
     :param lpp_data: LPPData, the data for the line planning problem
     :return: LPP (Line Planning Problem), the mixed integer linear program
     """
@@ -148,8 +200,7 @@ def create_line_planning_problem(lpp_data: LPPData) -> LPP:
 
 def _add_constraints(lpp_data: LPPData, lpp_model: pl.LpProblem, lpp_variables: _LPPVariables) -> None:
     """
-    adds all constraints to the mixed integer linear program
-    :return: None
+    Add all constraints to the mixed integer linear program.
     :param lpp_data: LPPData, the data for the line planning problem
     :param lpp_model: LpProblem (pulp) the model to which the constraints are added
     :param lpp_variables: _LPPVariables, the variables of the line planning problem
@@ -162,12 +213,24 @@ def _add_constraints(lpp_data: LPPData, lpp_model: pl.LpProblem, lpp_variables: 
 
 
 def _add_variables(lpp_data: LPPData) -> _LPPVariables:
+    """
+    Add line configuration variables and passenger flow variables.
+    :param lpp_data: LPPData, data of the line planning problem
+    :return: _LPPVariables, a class that that encapsulates line configuration variables and
+        passenger flow variables
+    """
     passenger_flow_variables = _add_passenger_flow_variables(lpp_data)
     line_configuration_variables = _add_line_configuration_variables(lpp_data)
     return _LPPVariables(line_configuration_variables, passenger_flow_variables)
 
 
 def _add_line_configuration_variables(data: LPPData) -> dict[tuple[int, int], LpVariable]:
+    """
+    Add binary configuration variables.
+    :param data: LPPData, data of the line planning problem
+    :return: dict[tuple[int, int], LpVariable], a dict whose key is line number and frequency, while
+        value is a binary variable
+    """
     line_configuration_variables: dict[tuple[int, int], LpVariable] = {}
     for line in data.scenario.bus_lines:
         for frequency in line.permitted_frequencies:
@@ -180,10 +243,23 @@ def _add_line_configuration_variables(data: LPPData) -> dict[tuple[int, int], Lp
 def _calculate_number_of_required_vehicles(
     frequency: int, minimal_circulation_time: timedelta, period_duration: timedelta
 ) -> int:
+    """
+    Calculate the number of vehicles required under the given condition.
+    :param frequency: int, the number of services (i.e. circulations) within the given period.
+    :param minimal_circulation_time: timedelta, the minimum time required for a single circulation of a vehicle
+    :param period_duration: timedelta, the entire period of the calculation.
+    :return: int, the number of vehicles that meets the frequency requirement and time constraints
+    """
     return ceil(minimal_circulation_time.total_seconds() / period_duration.total_seconds() * frequency)
 
 
 def _calculate_minimal_circulation_time(line: BusLine, dwell_time_at_terminal: timedelta) -> timedelta:
+    """
+    Calculate the minimal circulation time of a bus line
+    :param line: BusLine, a class of bus line
+    :param dwell_time_at_terminal: timedelta, time that the bus spends at each of the two terminals
+    :return: timedelta, circulation time, which is the sum of travel time and dwell time
+    """
     in_seconds = dwell_time_at_terminal.total_seconds() * 2 + sum(
         dt.total_seconds() for dt in chain.from_iterable((line.direction_a.trip_times, line.direction_b.trip_times))
     )
@@ -191,6 +267,12 @@ def _calculate_minimal_circulation_time(line: BusLine, dwell_time_at_terminal: t
 
 
 def _add_passenger_flow_variables(line_planning_data: LPPData) -> dict[tuple[str, int], LpVariable]:
+    """
+    Add passenger flow variables.
+    :param line_planning_data: LPPData, data of the line planning problem
+    :return: dict[tuple[str, str], LpVariable], a dict whose key is origin and link index, while value
+        is non-negative continuous variable
+    """
     passenger_flow_variables: dict[tuple[str, int], LpVariable] = {}
     all_origins = line_planning_data.scenario.demand_matrix.all_origins()
     link_weights = calculate_activity_weights(line_planning_data.network, line_planning_data.parameters)
@@ -203,6 +285,15 @@ def _add_passenger_flow_variables(line_planning_data: LPPData) -> dict[tuple[str
 
 
 def _add_objective(data: LPPData, model: pl.LpProblem, variables: _LPPVariables) -> None:
+    """
+    Add an objective to the line planning problem.
+    :param data: LPPData, data of the LP problem
+    :param model: pl.LpProblem, the LP model
+    :param variables: _LPPVariables, a class that that encapsulates line configuration variables and
+        passenger flow variables
+    :return: objective funtion of the LP problem, which is the combination of weighted sum of
+        passenger flows and the cost of operating vehicles
+    """
     weights = calculate_activity_weights(data.network, data.parameters)
     passenger_part = pl.lpSum(weights[i] * variable for (_, i), variable in variables.passenger_flow.items())
     vehicle_part = 0
@@ -221,6 +312,12 @@ def _add_objective(data: LPPData, model: pl.LpProblem, variables: _LPPVariables)
 def calculate_activity_weights(
     line_planning_network: LinePlanningNetwork, parameters: LinePlanningParameters
 ) -> tuple[float, ...]:
+    """
+    Calculate activity weights by multiplying time spent on the activity and the parameter.
+    :param line_planning_network: LinePlanningNetwork, the network of the line planning problem
+    :param parameters: LinePlanningParameters, a class which contains parameters for the lpp
+    :return: tuple[float, ...], a tuple which contains the weights of different activities
+    """
     weights = []
     for link in line_planning_network.all_links:
         total_seconds = link.duration.total_seconds()
@@ -241,6 +338,13 @@ def calculate_activity_weights(
 
 
 def _add_capacity_constraints(model: pl.LpProblem, variables: _LPPVariables, data: LPPData) -> None:
+    """
+    Add capacity constraints to the LP problem, passenger flows should not exceed the constraints.
+    :param model: pl.LpProblem, the LP model
+    :param variables: _LPPVariables, a class that that encapsulates line configuration variables and
+        passenger flow variables
+    :param data: LPPData, data of the LP problem
+    """
     line_lookup = {line.number: line for line in data.scenario.bus_lines}
     pax_lookup = defaultdict(list)
     for (_, edge_index), variable in variables.passenger_flow.items():
@@ -270,6 +374,13 @@ def _add_capacity_constraints(model: pl.LpProblem, variables: _LPPVariables, dat
 
 
 def _add_flow_conservation_constraints(model: pl.LpProblem, variables: _LPPVariables, data: LPPData) -> None:
+    """
+    Add flow conservation constraints, which ensure that for each node, the inflow equals the outflow.
+    :param model: pl.LpProblem, the LP model
+    :param variables: _LPPVariables, a class that that encapsulates line configuration variables and
+        passenger flow variables
+    :param data: LPPData, data of the LP problem
+    """
     lpp_network = data.network
     lpp_graph = data.network.graph
     node_incidences = [
@@ -292,6 +403,13 @@ def _add_flow_conservation_constraints(model: pl.LpProblem, variables: _LPPVaria
 
 
 def _add_at_most_one_config_per_line_allowed(model: pl.LpProblem, variables: _LPPVariables, data: LPPData) -> None:
+    """
+    Add configuration constraint, which ensures no more than one configuration is added to each line.
+    :param model: pl.LpProblem, the LP model
+    :param variables: _LPPVariables, a class that that encapsulates line configuration variables and
+        passenger flow variables
+    :param data: LPPData, data of the LP problem
+    """
     configurations_by_line = defaultdict(list)
     for (line_id, _), variable in variables.line_configuration.items():
         configurations_by_line[line_id].append(variable)
@@ -300,6 +418,13 @@ def _add_at_most_one_config_per_line_allowed(model: pl.LpProblem, variables: _LP
 
 
 def _restrict_the_number_of_vehicles(model: pl.LpProblem, variables: _LPPVariables, data: LPPData) -> None:
+    """
+    Add constraints of the number of vehicles, ensuring that it does not exceed the maximal number.
+    :param model: pl.LpProblem, the LP model
+    :param variables: _LPPVariables, a class that that encapsulates line configuration variables and
+        passenger flow variables
+    :param data: LPPData, data of the LP problem
+    """
     line_configuration_variables = variables.line_configuration
     parameters = data.parameters
     required_vehicles_when_selected = []

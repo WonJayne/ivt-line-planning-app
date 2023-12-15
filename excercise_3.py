@@ -52,6 +52,13 @@ def configure_parameters() -> LinePlanningParameters:
 def update_frequencies(
     scenario: PlanningScenario, new_frequencies_by_line_nr: Mapping[int, tuple[int, ...]]
 ) -> PlanningScenario:
+    """
+    Update the permitted frequencies of bus lines.
+    :param scenario: PlanningScenario
+    :param new_frequencies_by_line_nr: Mapping[int, tuple[int, ...]], a mapping of line
+        numbers to new permitted frequencies
+    :return: PlanningScenario, updated scenario
+    """
     updated_lines = []
     for line in scenario.bus_lines:
         updated_lines.append(line._replace(permitted_frequencies=new_frequencies_by_line_nr[line.number]))
@@ -59,6 +66,12 @@ def update_frequencies(
 
 
 def update_capacities(scenario: PlanningScenario, new_capacities_by_line_nr: Mapping[int, int]) -> PlanningScenario:
+    """
+    Update the capacities of bus lines.
+    :param scenario: PlanningScenario
+    :param new_capacities_by_line_nr: Mapping[int, int], a mapping of lines numbers to new capacities
+    :return: PlanningScenario, updated scenario
+    """
     updated_lines = []
     for line in scenario.bus_lines:
         updated_lines.append(line._replace(regular_capacity=new_capacities_by_line_nr[line.number]))
@@ -66,6 +79,11 @@ def update_capacities(scenario: PlanningScenario, new_capacities_by_line_nr: Map
 
 
 def update_scenario(baseline_scenario: PlanningScenario) -> PlanningScenario:
+    """
+    Update the scenario with new permitted frequencies and capacities.
+    :param baseline_scenario: PlanningScenario
+    :return: PlanningScenario, updated scenario
+    """
     new_frequencies_by_line_id = {0: (6,), 1: (6,), 2: (6,), 3: (6,), 4: (6,), 5: (5,), 6: (8,), 7: (6,)}
     new_capacities_by_line_id = {0: 100, 1: 100, 2: 65, 3: 65, 4: 65, 5: 65, 6: 40, 7: 40}
     updated_scenario = update_capacities(baseline_scenario, new_capacities_by_line_id)
@@ -73,6 +91,12 @@ def update_scenario(baseline_scenario: PlanningScenario) -> PlanningScenario:
 
 
 def do_the_line_planning(do_plot: bool) -> None:
+    """
+    Do the line planning. If an optimal solution is found, plot available v.s. used capacity
+        for each line, and summary of the planning. Otherwise, raise warning.
+    :param do_plot: bool, indicate whether to generate plots
+    :return:
+    """
     paths = load_paths()
     parameters = configure_parameters()
     baseline_scenario = load_scenario(parameters, paths)
