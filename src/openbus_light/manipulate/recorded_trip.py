@@ -78,6 +78,7 @@ def _find_index_of_start_and_end_pairs(measurements: pd.DataFrame) -> tuple[tupl
     :param measurements: pd.DataFrame, dataframe containing information of the run
     :return: tuple[tuple[int, int], ...], tuple of pairs of start and end index
     """
+
     class _Event(IntEnum):
         START = 1
         END = -1
@@ -126,7 +127,7 @@ def _extract_recorded_trips(
                     "departure_planned": row.ABFAHRTSZEIT,
                     "departure_observed": row.AB_PROGNOSE,
                 }
-                for row in measurements[begin: end + 1].itertuples(index=False)
+                for row in measurements[begin : end + 1].itertuples(index=False)
             ),
         )
         recorded_trips_by_start_end[(recorded_trip.start, recorded_trip.end)].append(recorded_trip)

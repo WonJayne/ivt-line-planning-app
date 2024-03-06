@@ -396,9 +396,9 @@ def _add_flow_conservation_constraints(model: pl.LpProblem, variables: _LPPVaria
         flow_balance_at_nodes[origin_index] = -sum(flow_balance_at_nodes)
         for flow_balance, (incoming_indices, outgoing_indices) in zip(flow_balance_at_nodes, node_incidences):
             model.addConstraint(
-                    pl.lpSum(variables.passenger_flow[origin, i] for i in incoming_indices)
-                    - pl.lpSum(variables.passenger_flow[origin, i] for i in outgoing_indices)
-                    == -flow_balance
+                pl.lpSum(variables.passenger_flow[origin, i] for i in incoming_indices)
+                - pl.lpSum(variables.passenger_flow[origin, i] for i in outgoing_indices)
+                == -flow_balance
             )
 
 
