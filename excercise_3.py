@@ -16,8 +16,8 @@ from plots import plot_available_vs_used_capacity_for_each_direction, plot_avail
 from openbus_light.manipulate import ScenarioPaths, load_scenario
 from openbus_light.model import PlanningScenario
 from openbus_light.plan import LinePlanningNetwork, LinePlanningParameters, LPPData, create_line_planning_problem
+from openbus_light.plan.summary import create_summary
 from openbus_light.plot.demand import PlotBackground, create_plot
-from openbus_light.utils.summary import create_summary
 
 
 def load_paths() -> ScenarioPaths:
@@ -38,7 +38,7 @@ def configure_parameters() -> LinePlanningParameters:
         in_vehicle_time_weight=10,
         walking_time_weight=10,
         dwell_time_at_terminal=timedelta(seconds=5 * 60),
-        vehicle_cost_per_period=0,
+        vehicle_cost_per_period=(0),
         vehicle_capacity=60,
         permitted_frequencies=(4, 10),
         demand_association_radius=500,

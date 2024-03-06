@@ -8,14 +8,15 @@ from typing import Collection, Sequence
 import numpy as np
 import pandas as pd
 
-from ..model import DemandMatrix, DistrictPoints, PointIn2D, Station
+from ..model import DemandMatrix, DistrictPoint, PointIn2D, Station
+from ..model.type import DistrictName, DistrictPointId, Meter, StationName
 from ..plan import LinePlanningParameters
 from ..utils import skip_one_line_in_file
 from .paths import ScenarioPaths
 from .point import calculate_distance_in_m
 
 
-def _load_all_district_points(path_to_demand_district_points: str) -> tuple[DistrictPoints, ...]:
+def _load_all_district_points(path_to_demand_district_points: str) -> tuple[DistrictPoint, ...]:
     """
     Load all district points. From file convert to DistrictPoints.
     :param path_to_demand_district_points: str, path and name of the file
@@ -26,10 +27,10 @@ def _load_all_district_points(path_to_demand_district_points: str) -> tuple[Dist
         raw_demand_points = pd.read_csv(file, sep=",", encoding="utf-8", dtype=str)
 
     return tuple(
-        DistrictPoints(
+        DistrictPoint(
             district_name=row.BEZIRKE,
             position=PointIn2D(lat=float(row.YCOORD), long=float(row.XCOORD)),
-            id=str(uuid.uuid4()),
+            id=DistrictPointId(str(uuid.uuid4())),
         )
         for row in raw_demand_points.itertuples(index=False)
         if not pd.isnull(row.BEZIRKE)
@@ -63,7 +64,7 @@ def load_demand_matrix(
 
 
 def _map_district_to_nearest_station(
-    all_district_points: Collection[DistrictPoints], stations: Sequence[Station], association_radius: int
+    all_district_points: Collection[DistrictPoint], stations: Sequence[Station], association_radius: Meter
 ) -> None:
     """
     Associate each district point with the nearest station. if the distance between
@@ -84,8 +85,8 @@ def _map_district_to_nearest_station(
 
 
 def _map_demand_from_districts_to_stations(
-    demand_between_district_points: dict[str, dict[str, float]], stations: Collection[Station]
-) -> dict[str, dict[str, float]]:
+    demand_between_district_points: dict[DistrictPointId, dict[DistrictPointId, float]], stations: Collection[Station]
+) -> dict[StationName, dict[StationName, float]]:
     """
     Mao the demand between districts to demand between stations.
     :param demand_between_district_points: dict[str, dict[str, float]], a dict where the key
@@ -110,8 +111,8 @@ def _map_demand_from_districts_to_stations(
 
 
 def _sort_from_station_to_other_stations(
-    from_station_to_other_stations: dict[str, dict[str, float]]
-) -> dict[str, dict[str, float]]:
+    from_station_to_other_stations: dict[StationName, dict[StationName, float]]
+) -> dict[StationName, dict[StationName, float]]:
     """
     Sort the dictionary alphabetically based on origin names and destination names.
     :param from_station_to_other_stations: dict[str, dict[str, float]], original dict
@@ -124,11 +125,11 @@ def _sort_from_station_to_other_stations(
 
 
 def _distribute_demand_between_districts(
-    covered_district_points: Collection[DistrictPoints],
+    covered_district_points: Collection[DistrictPoint],
     demand_scale: float,
-    demanded_relations: dict[tuple[str, str], float],
-    stations_per_district: dict[str, int],
-) -> dict[str, dict[str, float]]:
+    demanded_relations: dict[tuple[DistrictName, DistrictName], float],
+    stations_per_district: dict[DistrictName, int],
+) -> dict[DistrictPointId, dict[DistrictPointId, float]]:
     """
     Distribute the demand between districts.
     :param covered_district_points: Collection[DistrictPoints], collection of the district points
@@ -149,7 +150,7 @@ def _distribute_demand_between_districts(
     }
 
 
-def _load_all_demanded_relations(path_to_demand: str) -> dict[tuple[str, str], float]:
+def _load_all_demanded_relations(path_to_demand: str) -> dict[tuple[DistrictName, DistrictName], float]:
     """
     Load all the origins and destinations with the demand between them.
     :param path_to_demand: str, path and name of the file
@@ -160,6 +161,6 @@ def _load_all_demanded_relations(path_to_demand: str) -> dict[tuple[str, str], f
         skip_one_line_in_file(file)
         raw_demand = pd.read_csv(file, sep=",", encoding="utf-8", dtype=str)
         return {
-            (relation.FROM, relation.TO): round(float(relation.DEMAND), 4)
+            (DistrictName(relation.FROM), DistrictName(relation.TO)): round(float(relation.DEMAND), 4)
             for relation in raw_demand.itertuples(index=False)
         }

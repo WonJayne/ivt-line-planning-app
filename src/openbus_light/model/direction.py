@@ -4,12 +4,13 @@ from functools import cached_property
 
 from ..utils import pairwise
 from .recordedtrip import RecordedTrip
+from .type import DirectionName, StationName
 
 
 @dataclass(frozen=True)
 class Direction:
-    name: str
-    station_names: tuple[str, ...]
+    name: DirectionName
+    station_names: tuple[StationName, ...]
     trip_times: tuple[timedelta, ...]
     recorded_trips: tuple[RecordedTrip, ...] = tuple()
 
@@ -31,14 +32,14 @@ class Direction:
         return len(self.station_names)
 
     @property
-    def stations_as_pairs(self) -> tuple[tuple[str, str], ...]:
+    def stations_as_pairs(self) -> tuple[tuple[StationName, StationName], ...]:
         """
         Transform each consecutive 2 stations into pairs.
-        :return: tuple[tuple[str, str], ...], pair of stations
+        :return: tuple[tuple[StationName, StationName], ...], pair of stations
         """
         return tuple(pairwise(self.station_names))
 
-    def trip_time_per_stop_pair(self) -> tuple[tuple[tuple[str, str], timedelta], ...]:
+    def trip_time_by_pair(self) -> tuple[tuple[tuple[StationName, StationName], timedelta], ...]:
         """
         Get the trip time between each pair of consecutive stations.
         :return: tuple[tuple[tuple[str, str], timedelta], ...], name of the stations in pair

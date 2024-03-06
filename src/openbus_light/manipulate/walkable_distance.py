@@ -4,9 +4,9 @@ from datetime import timedelta
 from itertools import combinations
 from typing import Collection
 
-from ..manipulate import calculate_distance_in_m
 from ..model import Station, WalkableDistance
 from ..plan import LinePlanningParameters
+from .point import calculate_distance_in_m
 
 
 def find_all_walkable_distances(

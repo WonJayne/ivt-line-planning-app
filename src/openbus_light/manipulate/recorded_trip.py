@@ -7,7 +7,7 @@ from typing import Any, Collection, Iterable, Mapping, Optional, Sequence
 
 import pandas as pd
 
-from ..model import BusLine, Direction, RecordedTrip
+from ..model import BusLine, Direction, RecordedTrip, TripNr
 from ..utils import pairwise, skip_one_line_in_file
 
 
@@ -114,7 +114,7 @@ def _extract_recorded_trips(
 
     for begin, end in pairs:
         recorded_trip = RecordedTrip(
-            number=line_nr,
+            number=TripNr(line_nr),
             circulation_id=measurements.iloc[begin].UMLAUF_ID,
             start=measurements.iloc[begin].HALTESTELLEN_NAME,
             end=measurements.iloc[end].HALTESTELLEN_NAME,

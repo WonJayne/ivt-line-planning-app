@@ -1,10 +1,16 @@
-from dataclasses import dataclass
+from typing import NamedTuple
 
-from .point import DistrictPoints, PointIn2D
+from .point import PointIn2D
+from .type import DistrictName, DistrictPointId
 
 
-@dataclass(frozen=True)
-class District:
-    name: str
+class DistrictPoint(NamedTuple):
+    position: PointIn2D
+    district_name: DistrictName
+    id: DistrictPointId
+
+
+class District(NamedTuple):
+    name: DistrictName
     center_position: PointIn2D
-    points: tuple[DistrictPoints, ...]
+    points: tuple[DistrictPoint, ...]

@@ -1,4 +1,4 @@
-from ..plan import LPPData, LPPResult
+from openbus_light.plan import LPPData, LPPResult
 
 
 def create_summary(planning_data: LPPData, result: LPPResult) -> str:

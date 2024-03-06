@@ -11,7 +11,7 @@ import pulp as pl
 from pulp import LpVariable
 from tqdm import tqdm
 
-from ..model import BusLine, Direction, PlanningScenario
+from ..model import BusLine, Direction, LineFrequency, LineNr, PlanningScenario
 from ..utils import pairwise
 from .network import Activity, LinePlanningNetwork
 from .parameters import LinePlanningParameters
@@ -25,7 +25,7 @@ class LPPData(NamedTuple):
 
 
 class _LPPVariables(NamedTuple):
-    line_configuration: dict[tuple[int, int], LpVariable]
+    line_configuration: dict[tuple[LineNr, LineFrequency], LpVariable]
     passenger_flow: dict[tuple[str, int], LpVariable]
 
 
@@ -169,13 +169,13 @@ class LPP:
         """
         return self._data.network.get_link_index(source=source, target=target)
 
-    def _get_line_activation_values(self) -> dict[tuple[int, int], float]:
+    def _get_line_activation_values(self) -> dict[tuple[LineNr, LineFrequency], float]:
         """
         Get the activation value of lines. If value > 0.5, it's an active line, otherwise not active.
         :return: dict[tuple[int, int], float], a dict of the line numbers and the values that determine
             if a line is active
         """
-        return {key: var.varValue for key, var in self._variables.line_configuration.items()}
+        return {key: var.varValue for key, var in self._variables.line_configuration.items()}  # type ignore
 
     def _get_passenger_flow_values(self) -> dict[tuple[str, int], float]:
         """
@@ -224,14 +224,14 @@ def _add_variables(lpp_data: LPPData) -> _LPPVariables:
     return _LPPVariables(line_configuration_variables, passenger_flow_variables)
 
 
-def _add_line_configuration_variables(data: LPPData) -> dict[tuple[int, int], LpVariable]:
+def _add_line_configuration_variables(data: LPPData) -> dict[tuple[LineNr, LineFrequency], LpVariable]:
     """
     Add binary configuration variables.
     :param data: LPPData, data of the line planning problem
     :return: dict[tuple[int, int], LpVariable], a dict whose key is line number and frequency, while
         value is a binary variable
     """
-    line_configuration_variables: dict[tuple[int, int], LpVariable] = {}
+    line_configuration_variables: dict[tuple[LineNr, LineFrequency], LpVariable] = {}
     for line in data.scenario.bus_lines:
         for frequency in line.permitted_frequencies:
             line_configuration_variables[line.number, frequency] = LpVariable(
@@ -350,8 +350,8 @@ def _add_capacity_constraints(model: pl.LpProblem, variables: _LPPVariables, dat
     for (_, edge_index), variable in variables.passenger_flow.items():
         pax_lookup[edge_index].append(variable)
     for i, link in tqdm(tuple(enumerate(data.network.all_links)), desc="adding capacity constraints"):
-        if link.activity == Activity.IN_VEHICLE and link.line_id is not None:
-            line = line_lookup[link.line_id]
+        if link.activity == Activity.IN_VEHICLE and link.line_nr is not None:
+            line = line_lookup[link.line_nr]
             all_flows_over_this_link = pl.lpSum(pax_lookup[i])
             all_capacities_for_this_link = pl.lpSum(
                 variables.line_configuration[line.number, frequency] * line.regular_capacity * frequency
@@ -360,8 +360,8 @@ def _add_capacity_constraints(model: pl.LpProblem, variables: _LPPVariables, dat
             model.addConstraint(all_flows_over_this_link <= all_capacities_for_this_link, name=f"cap{line.number}@{i}")
             continue
 
-        if link.activity == Activity.ACCESS_LINE and link.line_id is not None:
-            line = line_lookup[link.line_id]
+        if link.activity == Activity.ACCESS_LINE and link.line_nr is not None:
+            line = line_lookup[link.line_nr]
             frequency = link.frequency
             if frequency is None:
                 raise ValueError(f"f{link} does not have a frequency {link.frequency}")

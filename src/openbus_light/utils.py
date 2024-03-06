@@ -1,5 +1,10 @@
 from itertools import tee
-from typing import Iterable, TypeVar
+from typing import IO, Iterable, TypeVar
+
+
+def skip_one_line_in_file(file_handle: IO) -> None:
+    next(file_handle)
+
 
 IterT = TypeVar("IterT")
 

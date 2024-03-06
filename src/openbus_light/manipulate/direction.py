@@ -4,10 +4,11 @@ from dataclasses import replace
 from datetime import timedelta
 
 from ..model import Direction
+from ..model.type import StationName
 
 
 def update_trip_times(
-    average_travel_time_per_link: dict[tuple[str, str], timedelta], direction: Direction
+    average_travel_time_per_link: dict[tuple[StationName, StationName], timedelta], direction: Direction
 ) -> Direction:
     """
     Update the trip times based on the average travel between stations of each link

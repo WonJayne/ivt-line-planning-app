@@ -3,12 +3,12 @@ from __future__ import annotations
 from itertools import chain
 from typing import Sequence
 
-from ..model import BusLine, PlanningScenario, Station
+from ..model import PlanningScenario
 from ..plan import LinePlanningParameters
 from .demand import load_demand_matrix
-from .line import LineFactory, _equalise_travel_times_per_link, load_lines_from_json
+from .line import BusLine, LineFactory, _equalise_travel_times_per_link, load_lines_from_json
 from .paths import ScenarioPaths
-from .station import load_served_stations
+from .station import Station, load_served_stations
 from .walkable_distance import find_all_walkable_distances
 
 

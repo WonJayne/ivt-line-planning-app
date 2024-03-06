@@ -19,9 +19,3 @@ class PointIn2D(NamedTuple):
         :return: bool
         """
         return self.__hash__() == other.__hash__() if isinstance(PointIn2D, other) else False
-
-
-class DistrictPoints(NamedTuple):
-    position: PointIn2D
-    district_name: str
-    id: str
