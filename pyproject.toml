@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "openbus_light"
-version = "0.0.2"
+version = "0.0.69"
 description = "Code for PuV TS-PART"
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [ "Programming Language :: Python :: 3", "License :: OSI Approved :: MIT License", "Operating System :: OS Independent",]
-dependencies = [ "matplotlib~=3.6.3", "numba~=0.56.4", "numpy~=1.23.5", "pandas~=1.5.3", "PuLP~=2.7.0", "python_igraph~=0.10.8", "tqdm~=4.64.1",]
+dependencies = [ "matplotlib~=3.6.3", "numba~=0.56.4", "numpy~=1.23.5", "pandas~=1.5.3", "plotly~=5.19.0", "PuLP~=2.7.0", "python_igraph~=0.10.8", "tqdm~=4.64.1",]
 [[project.authors]]
 name = "Daniel Heimgartner"
 email = "daniel.heimgartner@ivt.baug.ethz.ch"
@@ -93,7 +93,7 @@ indent-string = "    "
 indent-after-paren = 4
 
 [tool.pylint.basic]
-good-names = "i,j,k,_,lb,ub,dt,db"
+good-names = "i,j,k,_,lb,ub,dt,db,s,t,a,b,x,y,z,dx,dy"
 bad-names = "foo,bar,baz,toto,tutu,tata,test,l"
 include-naming-hint = "True"
 variable-rgx = "[a-z_][a-z0-9_]{2,30}$"

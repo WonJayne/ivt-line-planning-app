@@ -10,7 +10,7 @@ from .type import DirectionName, StationName
 @dataclass(frozen=True)
 class Direction:
     name: DirectionName
-    station_names: tuple[StationName, ...]
+    station_sequence: tuple[StationName, ...]
     trip_times: tuple[timedelta, ...]
     recorded_trips: tuple[RecordedTrip, ...] = tuple()
 
@@ -19,7 +19,8 @@ class Direction:
         Check the validity of the number of stations and number of trips.
         """
         if not (
-            len(self.station_names) - 1 == len(self.trip_times) or len(self.station_names) == len(self.trip_times) == 0
+            len(self.station_sequence) - 1 == len(self.trip_times)
+            or len(self.station_sequence) == len(self.trip_times) == 0
         ):
             raise RuntimeError(f"Invalid number of stops and trip times in {self}")
 
@@ -29,15 +30,15 @@ class Direction:
         Count the number of stations.
         :return: int
         """
-        return len(self.station_names)
+        return len(self.station_sequence)
 
     @property
-    def stations_as_pairs(self) -> tuple[tuple[StationName, StationName], ...]:
+    def station_names_as_pairs(self) -> tuple[tuple[StationName, StationName], ...]:
         """
         Transform each consecutive 2 stations into pairs.
         :return: tuple[tuple[StationName, StationName], ...], pair of stations
         """
-        return tuple(pairwise(self.station_names))
+        return tuple(pairwise(self.station_sequence))
 
     def trip_time_by_pair(self) -> tuple[tuple[tuple[StationName, StationName], timedelta], ...]:
         """
@@ -45,4 +46,4 @@ class Direction:
         :return: tuple[tuple[tuple[str, str], timedelta], ...], name of the stations in pair
             and trip time between them
         """
-        return tuple(((s, t), dt) for (s, t), dt in zip(self.stations_as_pairs, self.trip_times))
+        return tuple(((s, t), dt) for (s, t), dt in zip(self.station_names_as_pairs, self.trip_times))

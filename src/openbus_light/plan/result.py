@@ -6,13 +6,15 @@ from functools import cached_property
 from types import MappingProxyType
 from typing import NamedTuple, Optional
 
-from ..model import BusLine, Direction
-from .network import Activity
+from ..model import BusLine, Direction, StationName
+from .network import Activity, NodeName
 
 
 class PassengersPerLink(NamedTuple):
-    start: str
-    end: str
+    start_station: StationName
+    end_station: StationName
+    start_node: NodeName
+    end_node: NodeName
     pax: float
 
 

@@ -40,13 +40,13 @@ class LineFactory:
         line_name = LineName(str(json_data["nummer"]))
 
         direction_a = Direction(
-            station_names=tuple(map(str, json_data["linie_a"])),  # type: ignore
+            station_sequence=tuple(map(str, json_data["linie_a"])),  # type: ignore
             trip_times=tuple(map(_convert_seconds_to_timedelta, json_data["fahrzeiten_a"])),
             name=DirectionName("a"),
         )
 
         direction_b = Direction(
-            station_names=tuple(map(str, json_data["linie_b"])),  # type: ignore
+            station_sequence=tuple(map(str, json_data["linie_b"])),  # type: ignore
             trip_times=tuple(map(_convert_seconds_to_timedelta, json_data["fahrzeiten_b"])),
             name=DirectionName("b"),
         )

@@ -3,7 +3,7 @@ from __future__ import annotations
 from itertools import chain
 from typing import Sequence
 
-from ..model import PlanningScenario
+from ..model import Capacity, PlanningScenario
 from ..plan import LinePlanningParameters
 from .demand import load_demand_matrix
 from .line import BusLine, LineFactory, _equalise_travel_times_per_link, load_lines_from_json
@@ -21,7 +21,8 @@ def _drop_stations_that_are_not_served(stations: Sequence[Station], lines: Seque
     """
     names_of_served_stations = set(
         chain.from_iterable(
-            chain.from_iterable((line.direction_a.station_names, line.direction_b.station_names)) for line in lines
+            chain.from_iterable((line.direction_a.station_sequence, line.direction_b.station_sequence))
+            for line in lines
         )
     )
     return tuple(station for station in stations if station.name in names_of_served_stations)
@@ -35,9 +36,7 @@ def load_scenario(parameters: LinePlanningParameters, paths: ScenarioPaths) -> P
     :return: PlanningScenario, the LP scenario, described by demand, bus lines, walkable links and
         served stations
     """
-    line_factory = LineFactory(
-        regular_capacity=parameters.vehicle_capacity, permitted_frequencies=parameters.permitted_frequencies
-    )
+    line_factory = LineFactory(regular_capacity=Capacity(60), permitted_frequencies=parameters.permitted_frequencies)
     raw_lines = load_lines_from_json(line_factory, paths.to_lines)
     equalised_lines = _equalise_travel_times_per_link(raw_lines)
     all_stations_in_data = load_served_stations(paths.to_stations, raw_lines)

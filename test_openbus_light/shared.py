@@ -1,7 +1,7 @@
 from datetime import timedelta
 from functools import lru_cache
 
-from excercise_3 import load_paths
+from excercise_3 import get_paths
 
 from openbus_light.manipulate import load_scenario
 from openbus_light.model import PlanningScenario
@@ -17,7 +17,6 @@ def test_parameters() -> LinePlanningParameters:
         walking_time_weight=2,
         dwell_time_at_terminal=timedelta(seconds=5 * 60),
         vehicle_cost_per_period=1000,
-        vehicle_capacity=80,
         permitted_frequencies=(1, 2, 3, 4, 5, 6, 8, 10),
         demand_association_radius=500,
         walking_speed_between_stations=0.6,
@@ -29,4 +28,4 @@ def test_parameters() -> LinePlanningParameters:
 
 @lru_cache(maxsize=1)
 def cached_scenario() -> PlanningScenario:
-    return load_scenario(test_parameters(), load_paths())
+    return load_scenario(test_parameters(), get_paths())

@@ -1,4 +1,7 @@
+import argparse
+import os
 import warnings
+from collections import defaultdict
 from datetime import timedelta
 from typing import Mapping
 
@@ -11,16 +14,24 @@ from constants import (
     PATH_TO_STATIONS,
     WINTERTHUR_IMAGE,
 )
-from plots import plot_available_vs_used_capacity_for_each_direction, plot_available_vs_used_capacity_per_link
 
 from openbus_light.manipulate import ScenarioPaths, load_scenario
-from openbus_light.model import PlanningScenario
+from openbus_light.model import CHF, Capacity, LineFrequency, LineNr, Meter, MeterPerSecond, PlanningScenario
 from openbus_light.plan import LinePlanningNetwork, LinePlanningParameters, LPPData, create_line_planning_problem
 from openbus_light.plan.summary import create_summary
-from openbus_light.plot.demand import PlotBackground, create_plot
+from openbus_light.plot import (
+    PlotBackground,
+    create_colormap,
+    create_station_and_demand_plot,
+    create_station_and_line_plot,
+    plot_network_in_swiss_coordinate_grid,
+    plot_network_usage_in_swiss_coordinates,
+)
+from openbus_light.plot.line import plot_lines_in_swiss_coordinates
+from openbus_light.plot.line_usage import plot_available_vs_used_capacity_per_link, plot_usage_for_each_direction
 
 
-def load_paths() -> ScenarioPaths:
+def get_paths() -> ScenarioPaths:
     return ScenarioPaths(
         to_lines=PATH_TO_LINE_DATA,
         to_stations=PATH_TO_STATIONS,
@@ -37,20 +48,19 @@ def configure_parameters() -> LinePlanningParameters:
         waiting_time_weight=10,
         in_vehicle_time_weight=10,
         walking_time_weight=10,
-        dwell_time_at_terminal=timedelta(seconds=5 * 60),
-        vehicle_cost_per_period=(0),
-        vehicle_capacity=60,
-        permitted_frequencies=(4, 10),
-        demand_association_radius=500,
-        walking_speed_between_stations=0.6,
-        maximal_walking_distance=300,
+        dwell_time_at_terminal=timedelta(seconds=300),
+        vehicle_cost_per_period=CHF(1000),
+        permitted_frequencies=(LineFrequency(4), LineFrequency(6), LineFrequency(8)),
+        demand_association_radius=Meter(500),
+        walking_speed_between_stations=MeterPerSecond(0.6),
+        maximal_walking_distance=Meter(500),
         demand_scaling=0.1,
         maximal_number_of_vehicles=None,
     )
 
 
 def update_frequencies(
-    scenario: PlanningScenario, new_frequencies_by_line_nr: Mapping[int, tuple[int, ...]]
+    scenario: PlanningScenario, new_frequencies_by_line_nr: Mapping[LineNr, tuple[LineFrequency, ...]]
 ) -> PlanningScenario:
     """
     Update the permitted frequencies of bus lines.
@@ -65,7 +75,9 @@ def update_frequencies(
     return scenario._replace(bus_lines=tuple(updated_lines))
 
 
-def update_capacities(scenario: PlanningScenario, new_capacities_by_line_nr: Mapping[int, int]) -> PlanningScenario:
+def update_capacities(
+    scenario: PlanningScenario, new_capacities_by_line_nr: Mapping[LineNr, Capacity]
+) -> PlanningScenario:
     """
     Update the capacities of bus lines.
     :param scenario: PlanningScenario
@@ -74,34 +86,49 @@ def update_capacities(scenario: PlanningScenario, new_capacities_by_line_nr: Map
     """
     updated_lines = []
     for line in scenario.bus_lines:
-        updated_lines.append(line._replace(regular_capacity=new_capacities_by_line_nr[line.number]))
+        updated_lines.append(line._replace(capacity=new_capacities_by_line_nr[line.number]))
     return scenario._replace(bus_lines=tuple(updated_lines))
 
 
-def update_scenario(baseline_scenario: PlanningScenario) -> PlanningScenario:
+def update_scenario(
+    baseline_scenario: PlanningScenario, parameters: LinePlanningParameters, use_current_frequencies: bool
+) -> PlanningScenario:
     """
     Update the scenario with new permitted frequencies and capacities.
     :param baseline_scenario: PlanningScenario
+    :param parameters: LinePlanningParameters
     :return: PlanningScenario, updated scenario
     """
-    new_frequencies_by_line_id = {0: (6,), 1: (6,), 2: (6,), 3: (6,), 4: (6,), 5: (5,), 6: (8,), 7: (6,)}
-    new_capacities_by_line_id = {0: 100, 1: 100, 2: 65, 3: 65, 4: 65, 5: 65, 6: 40, 7: 40}
-    updated_scenario = update_capacities(baseline_scenario, new_capacities_by_line_id)
+
+    if use_current_frequencies:
+        new_frequencies_by_line_id = {
+            LineNr(0): (LineFrequency(6),),
+            LineNr(1): (LineFrequency(6),),
+            LineNr(2): (LineFrequency(6),),
+            LineNr(3): (LineFrequency(6),),
+            LineNr(4): (LineFrequency(6),),
+            LineNr(5): (LineFrequency(5),),
+            LineNr(6): (LineFrequency(8),),
+            LineNr(7): (LineFrequency(6),),
+        }
+    else:
+        new_frequencies_by_line_id = defaultdict(lambda: parameters.permitted_frequencies)
+    capacities_by_line_id = {0: 100, 1: 100, 2: 65, 3: 65, 4: 65, 5: 65, 6: 40, 7: 40}
+    updated_scenario = update_capacities(baseline_scenario, capacities_by_line_id)
     return update_frequencies(updated_scenario, new_frequencies_by_line_id)
 
 
-def do_the_line_planning(do_plot: bool) -> None:
+def do_the_line_planning(use_current_frequencies: bool) -> None:
     """
     Do the line planning. If an optimal solution is found, plot available v.s. used capacity
         for each line, and summary of the planning. Otherwise, raise warning.
-    :param do_plot: bool, indicate whether to generate plots
-    :return:
+    :return: None
     """
-    paths = load_paths()
+    paths = get_paths()
     parameters = configure_parameters()
     baseline_scenario = load_scenario(parameters, paths)
 
-    updated_scenario = update_scenario(baseline_scenario)
+    updated_scenario = update_scenario(baseline_scenario, parameters, use_current_frequencies)
 
     updated_scenario.check_consistency()
     planning_data = LPPData(
@@ -110,31 +137,49 @@ def do_the_line_planning(do_plot: bool) -> None:
         LinePlanningNetwork.create_from_scenario(updated_scenario, parameters.period_duration),
     )
 
-    if do_plot:
-        figure = create_plot(
-            stations=planning_data.scenario.stations, plot_background=PlotBackground(WINTERTHUR_IMAGE, GPS_BOX)
-        )
-        figure.savefig("stations_and_caught_demand.jpg", dpi=900)
+    plot_path = "plots"
+    os.makedirs(plot_path, exist_ok=True)
+    figure = create_station_and_demand_plot(
+        stations=planning_data.scenario.stations, plot_background=PlotBackground(WINTERTHUR_IMAGE, GPS_BOX)
+    )
+    figure.savefig(os.path.join(plot_path, "stations_and_caugt_demand.jpg"), dpi=900)
+    figure = plot_network_in_swiss_coordinate_grid(
+        planning_data.network, create_colormap([line.number for line in planning_data.scenario.bus_lines])
+    )
+    figure.write_html(os.path.join(plot_path, "network_in_swiss_coordinates.html"))
 
     lpp = create_line_planning_problem(planning_data)
+    print("Solving the line planning problem...")
     lpp.solve()
+    print("Solving the line planning problem...done")
     result = lpp.get_result()
 
     if result.success:
+        os.makedirs(plot_path, exist_ok=True)
         for line, passengers in result.solution.passengers_per_link.items():
-            plot_available_vs_used_capacity_for_each_direction(line, passengers).savefig(
-                f"available_vs_used_capacity_for_line_{line.number}.jpg", dpi=900
+            plot_usage_for_each_direction(line, passengers).write_html(
+                os.path.join("plots", f"available_vs_used_capacity_for_line_{line.number}.html")
             )
-        plot_available_vs_used_capacity_per_link(result.solution.passengers_per_link, sort_criteria="pax").savefig(
-            "available_vs_used_capacity_sorted_by_pax.jpg", dpi=900
-        )
-        plot_available_vs_used_capacity_per_link(result.solution.passengers_per_link, sort_criteria="capacity").savefig(
-            "available_vs_used_capacity_sorted_by_capacity.jpg", dpi=900
-        )
+        create_station_and_line_plot(
+            stations=planning_data.scenario.stations,
+            lines=planning_data.scenario.bus_lines,
+            plot_background=PlotBackground(WINTERTHUR_IMAGE, GPS_BOX),
+        ).savefig(os.path.join(plot_path, "network.jpg"), dpi=900)
+        plot_lines_in_swiss_coordinates(
+            stations=planning_data.scenario.stations, lines=planning_data.scenario.bus_lines
+        ).write_html(os.path.join(plot_path, "lines_in_swiss_coordinates.html"))
+        plot_network_usage_in_swiss_coordinates(
+            planning_data.network, result.solution, scale_with_capacity=True
+        ).write_html(os.path.join(plot_path, "scaled_network_with_passengers_per_link_in_swiss_coordinates.html"))
+        plot_network_usage_in_swiss_coordinates(
+            planning_data.network, result.solution, scale_with_capacity=False
+        ).write_html(os.path.join(plot_path, "network_with_passengers_per_link_in_swiss_coordinates.html"))
         print(create_summary(planning_data, result))
         return
-    warnings.warn(f"lpp is not optimal, adjust {planning_data.parameters}")
+    warnings.warn(f"lpp is not optimal, adjust {planning_data.parameters}", UserWarning)
 
 
 if __name__ == "__main__":
-    do_the_line_planning(do_plot=False)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--use_current_frequencies", action="store_true", default=False)
+    do_the_line_planning(parser.parse_args().use_current_frequencies)

@@ -1,7 +1,7 @@
 from datetime import timedelta
 from typing import NamedTuple
 
-from ..model import Capacity, LineFrequency
+from ..model import LineFrequency
 from ..model.type import CHF, Meter, MeterPerSecond
 
 
@@ -13,7 +13,6 @@ class LinePlanningParameters(NamedTuple):
     dwell_time_at_terminal: timedelta
     period_duration: timedelta
     vehicle_cost_per_period: CHF
-    vehicle_capacity: Capacity
     permitted_frequencies: tuple[LineFrequency, ...]
     demand_scaling: float
     demand_association_radius: Meter

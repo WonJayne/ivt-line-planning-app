@@ -18,5 +18,5 @@ def update_trip_times(
     :return: Direction, direction with updated trip times
     """
     return replace(
-        direction, trip_times=tuple(average_travel_time_per_link[(u, v)] for u, v in direction.stations_as_pairs)
+        direction, trip_times=tuple(average_travel_time_per_link[(u, v)] for u, v in direction.station_names_as_pairs)
     )

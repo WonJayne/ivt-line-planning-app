@@ -143,7 +143,7 @@ def __get_stop_name_order(direction: Direction) -> dict[str, int]:
         direction
     """
     count = 0
-    return {name: (count := count + 1) for name in direction.station_names}
+    return {name: (count := count + 1) for name in direction.station_sequence}
 
 
 def _assign_recorded_trips_to_directions(

@@ -3,12 +3,12 @@ import pickle
 import tempfile
 
 import pandas as pd
-from excercise_3 import configure_parameters, load_paths
+from excercise_3 import configure_parameters, get_paths
 from pandas import DataFrame
 
 from openbus_light.manipulate import load_scenario
 from openbus_light.manipulate.recorded_trip import enrich_lines_with_recorded_trips
-from openbus_light.model import BusLine, RecordedTrip
+from openbus_light.model import BusLine, LineNr, RecordedTrip
 
 
 def calculate_trip_times(recorded_trip: RecordedTrip) -> pd.DataFrame:
@@ -53,10 +53,9 @@ def calculate_dwell_times(recorded_trip: RecordedTrip) -> DataFrame:
     return pd.DataFrame({"dwell_time_planned": dwell_time_planned, "dwell_time_observed": dwell_time_observed})
 
 
-def load_bus_lines_with_measurements(selected_line_numbers: frozenset[int]) -> tuple[BusLine, ...]:
+def load_bus_lines_with_measurements(selected_line_numbers: frozenset[LineNr]) -> tuple[BusLine, ...]:
     """
-    Load the bus lines with recorded measurements, enrich lines with recorded trips,
-        and cache the result.
+    Load the bus lines with recorded measurements, enrich lines with recorded trips, and cache the result.
     :param selected_line_numbers: frozenset[int], numbers of the bus lines
     :return: tuple[BusLine, ...], enriched bus lines
     """
@@ -66,7 +65,7 @@ def load_bus_lines_with_measurements(selected_line_numbers: frozenset[int]) -> t
         with open(cache_filename, "rb") as f:
             print(f"loaded bus lines from cache {cache_filename}")
             return pickle.load(f)
-    paths = load_paths()
+    paths = get_paths()
     parameters = configure_parameters()
     baseline_scenario = load_scenario(parameters, paths)
     baseline_scenario.check_consistency()
@@ -78,7 +77,7 @@ def load_bus_lines_with_measurements(selected_line_numbers: frozenset[int]) -> t
     return lines_with_recordings
 
 
-def analysis(selected_line_numbers: frozenset[int]) -> None:
+def analysis(selected_line_numbers: frozenset[LineNr]) -> None:
     """
     Calculate the trip times and dwell times of the bus lines and their trips.
     :param selected_line_numbers: frozenset[int], bus line numbers
@@ -89,7 +88,8 @@ def analysis(selected_line_numbers: frozenset[int]) -> None:
             for record in direction.recorded_trips:
                 trip_times = calculate_trip_times(record)
                 dwell_times = calculate_dwell_times(record)
+                raise ValueError("Not implemented yet")
 
 
 if __name__ == "__main__":
-    analysis(frozenset(range(5)))
+    analysis(frozenset(range((5))))

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import IntEnum, unique
@@ -7,7 +8,16 @@ from typing import Collection, NamedTuple, NewType
 
 import igraph
 
-from ..model import BusLine, Direction, DirectionName, LineFrequency, LineNr, PlanningScenario, WalkableDistance
+from ..model import (
+    BusLine,
+    Direction,
+    DirectionName,
+    LineFrequency,
+    LineNr,
+    PlanningScenario,
+    PointIn2D,
+    WalkableDistance,
+)
 from ..model.type import StationName
 from ..utils import pairwise
 
@@ -34,6 +44,14 @@ class LPNNode(NamedTuple):
     name: NodeName
     line_nr: None | LineNr
     direction_name: None | DirectionName
+    coordinates: PointIn2D
+
+
+class NodesForOneDirection(NamedTuple):
+    access_nodes: tuple[LPNNode, ...]
+    egress_nodes: tuple[LPNNode, ...]
+    service_nodes: tuple[LPNNode, ...]
+    transfer_nodes: tuple[LPNNode, ...]
 
 
 @dataclass(frozen=True)
@@ -117,8 +135,11 @@ class LinePlanningNetwork:
         lines_with_directions = (
             (line, direction) for line in scenario.bus_lines for direction in (line.direction_a, line.direction_b)
         )
+        station_coordinates = {station.name: station.center_position for station in scenario.stations}
         for line, direction in lines_with_directions:
-            new_nodes, new_links = cls._create_nodes_and_links_for_segment(line, direction, period_duration)
+            new_nodes, new_links = cls._create_nodes_and_links_for_direction(
+                line, direction, period_duration, station_coordinates
+            )
             links_to_add.extend(new_links)
             nodes_to_add.update(new_nodes)
 
@@ -144,18 +165,24 @@ class LinePlanningNetwork:
         return ((source, target), walking_link), ((target, source), walking_link)
 
     @classmethod
-    def _create_nodes_and_links_for_segment(
-        cls, line: BusLine, direction: Direction, period_duration: timedelta
+    def _create_nodes_and_links_for_direction(
+        cls,
+        line: BusLine,
+        direction: Direction,
+        period_duration: timedelta,
+        station_coordinates: Mapping[StationName, PointIn2D],
     ) -> tuple[frozenset[LPNNode], tuple[tuple[tuple[NodeName, NodeName], LPNLink], ...]]:
         """
-        Create nodes and links for the bus line segment in a specific direction.
+        Create nodes and links for the bus line in a specific direction.
         :param line: BusLine
         :param direction: Direction
         :param period_duration: timedelta, total duration of the planning problem
         :return: tuple[set[LPNNode], tuple[tuple[tuple[str, str], LPNLink], ...]],
             a set of all nodes and a tuple of tuples representing the links to be added to the graph
         """
-        access_nodes, egress_nodes, service_nodes, transfer_nodes = cls._create_nodes_for_direction(direction, line)
+        access_nodes, egress_nodes, service_nodes, transfer_nodes = cls._create_nodes_for_direction(
+            direction, line, station_coordinates
+        )
         links_to_add: list[tuple[tuple[NodeName, NodeName], LPNLink]] = []
         for frequency in line.permitted_frequencies:
             average_waiting_time: timedelta = period_duration / frequency * 0.5
@@ -181,8 +208,8 @@ class LinePlanningNetwork:
 
     @classmethod
     def _create_nodes_for_direction(
-        cls, direction: Direction, line: BusLine
-    ) -> tuple[tuple[LPNNode, ...], tuple[LPNNode, ...], tuple[LPNNode, ...], tuple[LPNNode, ...]]:
+        cls, direction: Direction, line: BusLine, station_coordinates: Mapping[StationName, PointIn2D]
+    ) -> NodesForOneDirection:
         """
         Generate nodes of different purposes for specific bus line and direction.
         :param direction: Direction
@@ -190,22 +217,32 @@ class LinePlanningNetwork:
         :return: tuple[tuple[LPNNode, ...], tuple[LPNNode, ...], tuple[LPNNode, ...], tuple[LPNNode, ...]],
             a tuple which contains tuples of 4 types of nodes
         """
-        station_names = direction.station_names
+        station_names = direction.station_sequence
         access_nodes = tuple(
-            LPNNode(node_name, None, None) for node_name in map(cls.access_node_name_from_station_name, station_names)
+            LPNNode(cls.access_node_name_from_station_name(station_name), None, None, station_coordinates[station_name])
+            for station_name in station_names
         )
         egress_nodes = tuple(
-            LPNNode(node_name, None, None) for node_name in map(cls.egress_node_name_from_station_name, station_names)
+            LPNNode(cls.egress_node_name_from_station_name(station_name), None, None, station_coordinates[station_name])
+            for station_name in station_names
         )
         transfer_nodes = tuple(
-            LPNNode(node_name, None, None) for node_name in map(cls.transfer_node_name_from_station_name, station_names)
+            LPNNode(
+                cls.transfer_node_name_from_station_name(station_name), None, None, station_coordinates[station_name]
+            )
+            for station_name in station_names
         )
         service_nodes = tuple(
-            LPNNode(node_name, line.number, direction.name)
-            for node_name in map(lambda x: cls.create_line_node_name(x, line, direction), station_names)
+            LPNNode(
+                cls.create_line_node_name(station_name, line, direction),
+                line.number,
+                direction.name,
+                station_coordinates[station_name],
+            )
+            for station_name in station_names
         )
 
-        return access_nodes, egress_nodes, service_nodes, transfer_nodes
+        return NodesForOneDirection(access_nodes, egress_nodes, service_nodes, transfer_nodes)
 
     @classmethod
     def _create_underlying_digraph(
@@ -233,7 +270,7 @@ class LinePlanningNetwork:
         :param station_name: NodeName, station name
         :return: NodeName, name of the node
         """
-        return NodeName(f"{Activity.ACCESS_LINE.value}${station_name}")
+        return NodeName(f"{Activity.ACCESS_LINE.name}${station_name}")
 
     @staticmethod
     def egress_node_name_from_station_name(station_name: StationName) -> NodeName:
@@ -242,7 +279,7 @@ class LinePlanningNetwork:
         :param station_name: NodeName, station name
         :return: NodeName, name of the node
         """
-        return NodeName(f"{Activity.EGRESS_LINE.value}${station_name}")
+        return NodeName(f"{Activity.EGRESS_LINE.name}${station_name}")
 
     @staticmethod
     def transfer_node_name_from_station_name(station_name: StationName) -> NodeName:
@@ -251,7 +288,7 @@ class LinePlanningNetwork:
         :param station_name: NodeName, station name
         :return: NodeName, name of the node
         """
-        return NodeName(f"{Activity.TRANSFER.value}${station_name}")
+        return NodeName(f"{Activity.TRANSFER.name}${station_name}")
 
     @staticmethod
     def create_line_node_name(station_name: StationName, line: BusLine, direction: Direction) -> NodeName:

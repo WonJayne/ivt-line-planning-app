@@ -6,7 +6,21 @@ from math import ceil
 
 from test_openbus_light.shared import cached_scenario, test_parameters
 
-from openbus_light.model import BusLine, DemandMatrix, Direction, PlanningScenario, Station, WalkableDistance
+from openbus_light.model import (
+    CHF,
+    BusLine,
+    Capacity,
+    DemandMatrix,
+    Direction,
+    LineFrequency,
+    LineName,
+    LineNr,
+    PlanningScenario,
+    PointIn2D,
+    Station,
+    StationName,
+    WalkableDistance,
+)
 from openbus_light.plan import (
     LinePlanningNetwork,
     LinePlanningParameters,
@@ -23,34 +37,39 @@ def _create_non_walking_scenario() -> PlanningScenario:
     :return: PlanningScenario
     """
     stations = (
-        Station("A", tuple(), (1, 2), [], []),
-        Station("B", tuple(), (1,), [], []),
-        Station("C", tuple(), (1,), [], []),
-        Station("D", tuple(), (1, 2), [], []),
+        Station(StationName("A"), (PointIn2D(1, 1),), (LineNr(1), LineNr(2)), [], []),
+        Station(StationName("B"), (PointIn2D(1, 1),), (LineNr(1),), [], []),
+        Station(StationName("C"), (PointIn2D(1, 1),), (LineNr(1),), [], []),
+        Station(StationName("D"), (PointIn2D(1, 1),), (LineNr(1), LineNr(2)), [], []),
     )
     bus_lines = (
         BusLine(
-            0,
-            "1",
+            LineNr(1),
+            LineName("1"),
             Direction(
                 "a", ("A", "B", "C", "D"), (timedelta(seconds=300), timedelta(seconds=300), timedelta(seconds=300))
             ),
             Direction(
                 "b", ("D", "C", "B", "A"), (timedelta(seconds=300), timedelta(seconds=300), timedelta(seconds=300))
             ),
-            regular_capacity=100,
-            permitted_frequencies=(1, 2),
+            capacity=Capacity(100),
+            permitted_frequencies=(LineFrequency(1), LineFrequency(2)),
         ),
         BusLine(
-            1,
-            "2",
+            LineNr(2),
+            LineName("2"),
             Direction("a", ("A", "D"), (timedelta(seconds=300),)),
             Direction("b", ("D", "A"), (timedelta(seconds=300),)),
-            regular_capacity=100,
-            permitted_frequencies=(1, 2),
+            capacity=Capacity(100),
+            permitted_frequencies=(LineFrequency(1), LineFrequency(2)),
         ),
     )
-    demand = DemandMatrix({"A": {"B": 100, "C": 50, "D": 100}, "D": {"A": 100, "B": 50, "C": 100}})
+    demand = DemandMatrix(
+        {
+            StationName("A"): {StationName("B"): 100, StationName("C"): 50, StationName("D"): 100},
+            StationName("D"): {StationName("A"): 100, StationName("B"): 50, StationName("C"): 100},
+        }
+    )
     return PlanningScenario(demand, bus_lines, tuple(), stations)
 
 
@@ -60,10 +79,10 @@ def _create_only_walking_scenario() -> PlanningScenario:
     :return: PlanningScenario
     """
     stations = (
-        Station("A", tuple(), (1,), [], []),
-        Station("B", tuple(), (1,), [], []),
-        Station("C", tuple(), (1,), [], []),
-        Station("D", tuple(), (1,), [], []),
+        Station("A", (PointIn2D(1, 1),), (1,), [], []),
+        Station("B", (PointIn2D(1, 1),), (1,), [], []),
+        Station("C", (PointIn2D(1, 1),), (1,), [], []),
+        Station("D", (PointIn2D(1, 1),), (1,), [], []),
     )
     bus_lines = (
         BusLine(
@@ -73,7 +92,7 @@ def _create_only_walking_scenario() -> PlanningScenario:
                 "a", ("A", "B", "C", "D"), (timedelta(seconds=300), timedelta(seconds=300), timedelta(seconds=300))
             ),
             Direction("b", ("D", "A"), (timedelta(seconds=300),)),
-            regular_capacity=100,
+            capacity=100,
             permitted_frequencies=(1, 2),
         ),
     )
@@ -137,10 +156,10 @@ class LinePlanningTestCase(unittest.TestCase):
         Check in line-favored solution, whether the weighted travel time for walking is 0, and vice versa.
         """
         parameters_favoring_vehicle = test_parameters()._replace(
-            waiting_time_weight=0, in_vehicle_time_weight=1 / 300, walking_time_weight=1, vehicle_cost_per_period=0
+            waiting_time_weight=0, in_vehicle_time_weight=1 / 300, walking_time_weight=1, vehicle_cost_per_period=CHF(0)
         )
         parameters_favoring_walking = test_parameters()._replace(
-            waiting_time_weight=0, in_vehicle_time_weight=1, walking_time_weight=1 / 300, vehicle_cost_per_period=0
+            waiting_time_weight=0, in_vehicle_time_weight=1, walking_time_weight=1 / 300, vehicle_cost_per_period=CHF(0)
         )
         scenario_with_walking = _create_only_walking_scenario()
         result_using_line = _solve_this_lpp(parameters_favoring_vehicle, scenario_with_walking)
@@ -166,7 +185,7 @@ class LinePlanningTestCase(unittest.TestCase):
         """
         scenario = _create_non_walking_scenario()
         zero_capacity_scenario = scenario._replace(
-            bus_lines=tuple(line._replace(regular_capacity=0) for line in scenario.bus_lines)
+            bus_lines=tuple(line._replace(capacity=Capacity(0)) for line in scenario.bus_lines)
         )
         parameters_with_no_vehicles = test_parameters()._replace(maximal_number_of_vehicles=0)
 
@@ -183,7 +202,9 @@ class LinePlanningTestCase(unittest.TestCase):
         """
         non_walking_scenario = _create_non_walking_scenario()
         zero_frequency_scenario = non_walking_scenario._replace(
-            bus_lines=tuple(line._replace(permitted_frequencies=(0,)) for line in non_walking_scenario.bus_lines)
+            bus_lines=tuple(
+                line._replace(permitted_frequencies=(LineFrequency(0),)) for line in non_walking_scenario.bus_lines
+            )
         )
 
         with self.assertRaises(ZeroDivisionError):
@@ -198,7 +219,7 @@ class LinePlanningTestCase(unittest.TestCase):
             waiting_time_weight=1 / 900,
             in_vehicle_time_weight=1 / 300,
             walking_time_weight=0,
-            vehicle_cost_per_period=0,
+            vehicle_cost_per_period=CHF(0),
             egress_time_weight=1 / 60,
         )
         non_walking_scenario = _create_non_walking_scenario()
@@ -236,18 +257,22 @@ class LinePlanningIntegrationTestCase(unittest.TestCase):
         Test the changing of frequency has an impact on waiting time.
         """
         scenario_with_frequency_2 = self._baseline_scenario._replace(
-            bus_lines=tuple(line._replace(permitted_frequencies=(20,)) for line in self._baseline_scenario.bus_lines)
+            bus_lines=tuple(
+                line._replace(permitted_frequencies=(LineFrequency(20),)) for line in self._baseline_scenario.bus_lines
+            )
         )
 
         scenario_with_frequency_1 = self._baseline_scenario._replace(
-            bus_lines=tuple(line._replace(permitted_frequencies=(10,)) for line in self._baseline_scenario.bus_lines)
+            bus_lines=tuple(
+                line._replace(permitted_frequencies=(LineFrequency(10),)) for line in self._baseline_scenario.bus_lines
+            )
         )
 
         parameters_only_transfer_weight = test_parameters()._replace(
             waiting_time_weight=1,
             in_vehicle_time_weight=0,
             walking_time_weight=0,
-            vehicle_cost_per_period=0,
+            vehicle_cost_per_period=CHF(0),
             egress_time_weight=0,
         )
 
@@ -278,15 +303,19 @@ class LinePlanningIntegrationTestCase(unittest.TestCase):
         Test that the changing of frequency does not have an impact on in-vehicle time and walking time.
         """
         scenario_with_frequency_2 = self._baseline_scenario._replace(
-            bus_lines=tuple(line._replace(permitted_frequencies=(20,)) for line in self._baseline_scenario.bus_lines)
+            bus_lines=tuple(
+                line._replace(permitted_frequencies=(LineFrequency(20),)) for line in self._baseline_scenario.bus_lines
+            )
         )
 
         scenario_with_frequency_1 = self._baseline_scenario._replace(
-            bus_lines=tuple(line._replace(permitted_frequencies=(10,)) for line in self._baseline_scenario.bus_lines)
+            bus_lines=tuple(
+                line._replace(permitted_frequencies=(LineFrequency(10),)) for line in self._baseline_scenario.bus_lines
+            )
         )
 
         parameters_only_transfer_weight = test_parameters()._replace(
-            waiting_time_weight=0, in_vehicle_time_weight=1, walking_time_weight=1, vehicle_cost_per_period=0
+            waiting_time_weight=0, in_vehicle_time_weight=1, walking_time_weight=1, vehicle_cost_per_period=CHF(0)
         )
 
         result_with_2 = _solve_this_lpp(parameters_only_transfer_weight, scenario_with_frequency_2)

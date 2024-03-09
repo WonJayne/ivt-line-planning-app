@@ -21,7 +21,8 @@ def load_served_stations(path_to_stations: str, lines: Collection[BusLine]) -> t
     """
     served_station_names = frozenset(
         chain.from_iterable(
-            chain.from_iterable((line.direction_a.station_names, line.direction_b.station_names)) for line in lines
+            chain.from_iterable((line.direction_a.station_sequence, line.direction_b.station_sequence))
+            for line in lines
         )
     )
     with open(path_to_stations, encoding="utf-8") as file_handle:

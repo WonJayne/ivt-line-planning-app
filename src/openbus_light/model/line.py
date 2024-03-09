@@ -6,8 +6,8 @@ from .type import Capacity, LineFrequency, LineName, LineNr
 
 class BusLine(NamedTuple):
     number: LineNr
-    line_name: LineName
+    name: LineName
     direction_a: Direction
     direction_b: Direction
-    regular_capacity: Capacity
+    capacity: Capacity
     permitted_frequencies: tuple[LineFrequency, ...]

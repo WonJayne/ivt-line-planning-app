@@ -1,21 +1,17 @@
 from __future__ import annotations
 
 from itertools import chain
-from typing import Collection, NamedTuple
+from typing import Collection
 
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 
 from ..model import Station
+from ._background import PlotBackground
 
 
-class PlotBackground(NamedTuple):
-    path_to_image: str
-    bounding_box: tuple[float, float, float, float]
-
-
-def create_plot(stations: Collection[Station], plot_background: PlotBackground) -> Figure:
+def create_station_and_demand_plot(stations: Collection[Station], plot_background: PlotBackground) -> Figure:
     district_points = tuple(chain.from_iterable(station.district_points for station in stations))
     figure, axis = plt.subplots(figsize=(8, 8))
     axis.set_title("Default Title, if we see this in your report, it's not so good")

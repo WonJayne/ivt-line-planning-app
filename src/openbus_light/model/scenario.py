@@ -20,7 +20,7 @@ class PlanningScenario(NamedTuple):
         """
         all_served_station_names = frozenset(
             chain.from_iterable(
-                line.direction_a.station_names + line.direction_b.station_names for line in self.bus_lines
+                line.direction_a.station_sequence + line.direction_b.station_sequence for line in self.bus_lines
             )
         )
         self._check_station_and_lines_consistency(all_served_station_names)
