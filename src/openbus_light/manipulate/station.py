@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import zipfile
 from itertools import chain
 from typing import Collection
 
@@ -25,9 +26,17 @@ def load_served_stations(path_to_stations: str, lines: Collection[BusLine]) -> t
             for line in lines
         )
     )
-    with open(path_to_stations, encoding="utf-8") as file_handle:
-        skip_one_line_in_file(file_handle)
-        stations_df = pd.read_csv(file_handle, sep=";", encoding="utf-8", dtype=str)
+    if path_to_stations.endswith(".zip"):
+        with zipfile.ZipFile(path_to_stations, "r") as zip_file:
+            with zip_file.open(zip_file.namelist()[0], "r") as file_handle:
+                skip_one_line_in_file(file_handle)
+                stations_df = pd.read_csv(file_handle, sep=";", encoding="utf-8", dtype=str)
+    elif path_to_stations.endswith(".csv"):
+        with open(path_to_stations, encoding="utf-8") as file_handle:
+            skip_one_line_in_file(file_handle)
+            stations_df = pd.read_csv(file_handle, sep=";", encoding="utf-8", dtype=str)
+    else:
+        raise ValueError(f"Unsupported file format: {path_to_stations}")
 
     points_per_station: dict[str, list[PointIn2D]] = {name: [] for name in served_station_names}
     for raw_point in stations_df.itertuples(index=False):

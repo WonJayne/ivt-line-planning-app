@@ -1,4 +1,5 @@
 import warnings
+import zipfile
 from collections import defaultdict
 from dataclasses import replace
 from enum import IntEnum
@@ -15,13 +16,19 @@ def enrich_lines_with_recorded_trips(path: str, lines: Collection[BusLine]) -> t
     """
     Enrich lines by converting specified columns to datetime format, and adding recorded trips
         in the directions of bus lines.
-    :param path: str, path to the file
+    :param path: str, path to the file holding the recorded trips
     :param lines: Collection[BusLine], collection of bus lines
     :return: tuple[BusLine], a tuple of enriched BusLines
     """
-    with open(path, encoding="utf-8", mode="r") as file_handle:
-        skip_one_line_in_file(file_handle)
-        raw_measurements = pd.read_csv(file_handle, sep=";", encoding="utf-8", dtype=str)
+    if path.endswith(".zip"):
+        with zipfile.ZipFile(path, "r") as zip_file:
+            with zip_file.open(zip_file.namelist()[0], "r") as file_handle:
+                skip_one_line_in_file(file_handle)
+                raw_measurements = pd.read_csv(file_handle, sep=";", encoding="utf-8", dtype=str)
+    else:
+        with open(path, encoding="utf-8", mode="r") as file_handle:
+            skip_one_line_in_file(file_handle)
+            raw_measurements = pd.read_csv(file_handle, sep=";", encoding="utf-8", dtype=str)
 
     enriched_lines = []
     lines_by_number = {str(line.number): line for line in lines}
@@ -202,7 +209,8 @@ def _add_recorded_trips_to_line(line: BusLine, raw_recordings: pd.DataFrame) -> 
     if len(no_direction) > 0:
         warnings.warn(
             f"There are some measurements ({len(no_direction)}) in {line.number} "
-            f"that cannot be assigned a direction "
+            f"that cannot be assigned a direction ",
+            UserWarning,
         )
     updated_direction_a = replace(line.direction_a, recorded_trips=in_direction_a)
     updated_direction_b = replace(line.direction_b, recorded_trips=in_direction_b)
