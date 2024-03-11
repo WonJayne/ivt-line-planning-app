@@ -20,8 +20,9 @@ function usage {
   echo "--score        Score code"
   echo "--build        Build package"
   echo "--install      Install package (in venv)"
-  echo "--all          execute --reformat, --check, --score --build and --install"
-  echo "-h, --help   Display this help message"
+  echo "--all          execute --reformat, --check, --score, --build, and --install"
+  echo "--test         Run unit tests"
+  echo "-h, --help     Display this help message"
   echo ""
 }
 
@@ -58,28 +59,23 @@ function check_types_and_conventions {
 }
 
 function check_maintainability_and_complexity {
-  # check code maintainability and complexity
   echo "maintainability as given by radon (score as number and Rank as letter)"
-  source venv_activation
+  source $venv_activation
   radon mi ./src/
   echo "cyclomatic complexity as given by radon (score as number and Rank as letter)"
-  source venv_activation
+  source $venv_activation
   radon cc ./src/
 }
 
 function build_install_and_test {
   echo "building your package (that is in ./src)"
-  # delete old stuff first (complete dist)
   rm -rf dist
-  source venv_activation
+  source $venv_activation
   python -m build
   echo "installing your package (using the .whl in dist)"
   wheel_file=$(ls ./dist/*.whl)
-  source venv_activation
   pip install $wheel_file --force-reinstall
-  echo "running the (unit)-tests in your installed package:"
-  source venv_activation
-  python -m unittest discover
+  run_tests
 }
 
 function update_pyproject_toml_from_requirements {
@@ -92,54 +88,42 @@ function install_in_user_venv {
   pip install $wheel_file --force-reinstall
 }
 
+function run_tests {
+  echo "running the (unit)-tests in your installed package:"
+  source $venv_activation
+  python -m unittest discover
+}
+
 if [ "$option" == "-h" ] || [ "$option" == "--help" ]; then
     usage
-fi
-
-if [ "$option" == "--score" ]; then
+elif [ "$option" == "--score" ]; then
   echo "Scoring code..."
   setup_venv_if_not_there
   check_maintainability_and_complexity
-  exit 0
-fi
-
-if [ "$option" == "--check" ]; then
+elif [ "$option" == "--check" ]; then
   echo "Checking code..."
   setup_venv_if_not_there
   check_types_and_conventions
-  exit 0
-fi
-
-if [ "$option" == "--reformat" ]; then
+elif [ "$option" == "--reformat" ]; then
   echo "Reformatting code..."
   setup_venv_if_not_there
   reformat
-  exit 0
-fi
-
-if [ "$option" == "--build" ]; then
+elif [ "$option" == "--build" ]; then
   echo "Building Package..."
   setup_venv_if_not_there
   build_install_and_test
-  exit 0
-fi
-
-if [ "$option" == "--install" ]; then
+elif [ "$option" == "--install" ]; then
   echo "Installing Package..."
   install_in_user_venv
-  exit 0
-fi
-
-if [ "$option" == "--all" ]; then
+elif [ "$option" == "--all" ]; then
   setup_venv_if_not_there
-  echo "Reformatting code..."
   reformat
-  echo "Checking code..."
   check_types_and_conventions
   check_maintainability_and_complexity
-  echo "Building code..."
   build_install_and_test
   install_in_user_venv
-  exit 0
+elif [ "$option" == "--test" ]; then
+  echo "Running tests..."
+  setup_venv_if_not_there
+  run_tests
 fi
-

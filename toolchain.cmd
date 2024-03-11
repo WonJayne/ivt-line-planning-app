@@ -53,6 +53,13 @@ if "%option%"=="--all" (
     goto :eof
 )
 
+if "%option%"=="--test" (
+    echo Running tests...
+    call :setup_venv_if_not_there
+    call :run_tests
+    goto :eof
+)
+
 echo Done, I'm fucking off now!
 call :usage
 goto :eof
@@ -68,6 +75,11 @@ goto :eof
         call %venv_activation% & pip install -r requirements.txt
         call %venv_activation% & pip install --upgrade isort pipreqs black build radon pylint mypy lxml toml
     )
+    goto :eof
+
+:run_tests
+    echo running the (unit)-tests in your installed package:
+    call %venv_activation% & py -m unittest discover
     goto :eof
 
 :reformat
@@ -98,6 +110,7 @@ goto :eof
     goto :eof
 
 :build_install_and_test
+    call :run_tests
     echo building your package (that is in .\\src)
     rem delete old stuff first (complete dist)
     rd /s /q "dist"
@@ -105,8 +118,6 @@ goto :eof
     echo installing your package (using the .whl in dist)
     for /f "delims=" %%i in ('dir .\\dist\\*.whl /s /b') do set "wheel_file=%%i"
     call %venv_activation% & pip install %wheel_file% --force-reinstall
-    echo running the (unit)-tests in your installed package:
-    call %venv_activation% & py -m unittest discover
     goto :eof
 
 :usage
@@ -125,11 +136,11 @@ goto :eof
     echo --score        Score code
     echo --build        Build package
     echo --install      Install package (in venv)
-    echo --all          execute --reformat, --check, --score --build and --install
-    echo -h, --help   Display this help message
+    echo --all          execute --reformat, --check, --score, --build, and --install
+    echo --test         Run unit tests
+    echo -h, --help     Display this help message
     echo.
     goto :eof
-
 
 :update_pyproject_toml_from_requirements
     call python -c "import toml; original_toml = toml.load('pyproject.toml'); original_toml['project']['dependencies'] = list(map(str.strip, map(str, open('requirements.txt', 'r').readlines()))); toml.dump(original_toml, open('pyproject.toml', 'w')); print('updated pyproject.toml with requirements.txt'); quit()"
