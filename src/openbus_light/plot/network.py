@@ -167,6 +167,7 @@ def plot_network_usage_in_swiss_coordinates(
     else:
         max_pax = max(all_passenger_per_link, key=lambda ppl: ppl.pax).pax
         continuous_scale, normaliser = create_continuous_colormap(0, max_pax, cmap_name)
+        capacity_by_line = {}  # should raise a key error if used, deliberately not used
     passengers_by_end_nodes = {(rel.start_node, rel.end_node): rel.pax for rel in all_passenger_per_link}
     node_names = reduced.all_node_names
     figure = go.Figure()
@@ -213,7 +214,7 @@ def plot_network_usage_in_swiss_coordinates(
 
     # Create dummy scatter trace for the color bar
     figure.add_trace(_create_color_bar(cmap_name, 0, max_pax))
-    figure.update_layout(coloraxis={"colorbar": {"title": "Passengers", "x": -0.15, "xanchor": "left"}})
+    figure.update_layout(coloraxis_colorbar_x=-0.15)
     return figure
 
 
@@ -225,6 +226,7 @@ def _create_color_bar(cmap_name: str, _min: float, _max: float) -> go.Scatter:
     :param _max: The maximum value for the color bar.
     :return: go.Scatter, the scatter trace for the color bar.
     """
+    assert _min <= _max
     return go.Scatter(
         x=[None],
         y=[None],
@@ -237,8 +239,10 @@ def _create_color_bar(cmap_name: str, _min: float, _max: float) -> go.Scatter:
                 "title": "Passengers",
                 "tickvals": [_min, _max / 2, _max],
                 "ticktext": [f"{_min:.2f}", f"{(_max / 2):.2f}", f"{_max:.2f}"],
+                "x": -0.1,
             },
             "showscale": True,
         },
+        showlegend=False,
         hoverinfo="none",
     )
