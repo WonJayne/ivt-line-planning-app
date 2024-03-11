@@ -6,13 +6,14 @@ from collections import defaultdict
 from datetime import timedelta
 from typing import Mapping
 
-from constants import (
+from _constants import (
     GPS_BOX,
     MEASUREMENTS,
     PATH_TO_DEMAND,
     PATH_TO_DEMAND_DISTRICT_POINTS,
     PATH_TO_LINE_DATA,
     PATH_TO_STATIONS,
+    RESULT_DIRNAME,
     WINTERTHUR_IMAGE,
 )
 
@@ -95,6 +96,7 @@ def update_scenario(
     Update the scenario with new permitted frequencies and capacities.
     :param baseline_scenario: PlanningScenario
     :param parameters: LinePlanningParameters
+    :param use_current_frequencies: bool, whether to use the current frequencies of the lines
     :return: PlanningScenario, updated scenario
     """
 
@@ -134,8 +136,7 @@ def do_the_line_planning(experiment_id: str, use_current_frequencies: bool, para
         LinePlanningNetwork.create_from_scenario(updated_scenario, parameters.period_duration),
     )
 
-    dump_path = os.path.join("plots", experiment_id)
-    os.makedirs(dump_path, exist_ok=True)
+    os.makedirs((dump_path := os.path.join(RESULT_DIRNAME, experiment_id)), exist_ok=True)
     figure = create_station_and_demand_plot(
         stations=planning_data.scenario.stations, plot_background=PlotBackground(WINTERTHUR_IMAGE, GPS_BOX)
     )
@@ -148,8 +149,8 @@ def do_the_line_planning(experiment_id: str, use_current_frequencies: bool, para
     lpp = create_line_planning_problem(planning_data)
     print("Solving the line planning problem...")
     lpp.solve()
-    print("Solving the line planning problem...done")
     result = lpp.get_result()
+    print(f"Solving the line planning problem...done, {result.success=}")
 
     if not result.success:
         raise UserWarning("No optimal solution found, please check the parameters.")
@@ -174,7 +175,7 @@ def do_the_line_planning(experiment_id: str, use_current_frequencies: bool, para
         planning_data.network, result.solution, scale_with_capacity=False
     ).write_html(os.path.join(dump_path, "network_with_passengers_per_link_in_swiss_coordinates.html"))
     with open(os.path.join(dump_path, f"{experiment_id}.Summary.json"), "w") as f:
-        json.dump(create_summary(planning_data, result), f)
+        json.dump(create_summary(planning_data, result), f, indent=4)
 
 
 def _convert_args_to_parameters(args: argparse.Namespace) -> LinePlanningParameters:
@@ -267,7 +268,7 @@ def main() -> None:
     parser.add_argument(
         "--use_current_frequencies",
         action="store_true",
-        default=True,
+        default=False,
         help="Use the current frequencies of the lines in the line planning problem.",
     )
     args = parser.parse_args()

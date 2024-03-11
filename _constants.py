@@ -9,3 +9,5 @@ MEASUREMENTS = os.path.join(SCENARIO_PATH, "Messungen.csv")
 WINTERTHUR_IMAGE = os.path.join(SCENARIO_PATH, "Winterthur_Karte.png")
 PATH_TO_LINE_DATA = os.path.join(_DATA_ROOT, "lines")
 GPS_BOX = (8.61, 8.88, 47.35, 47.62)
+
+RESULT_DIRNAME = "results"

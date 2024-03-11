@@ -4,7 +4,7 @@ import tempfile
 from datetime import timedelta
 
 import pandas as pd
-from excercise_3 import get_paths
+from exercise_3 import get_paths
 from pandas import DataFrame
 
 from openbus_light.manipulate import load_scenario
