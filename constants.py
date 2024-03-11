@@ -1,11 +1,11 @@
 import os
 
-DATA_ROOT = "data"
-SCENARIO_PATH = os.path.join(DATA_ROOT, "scenario")
+_DATA_ROOT = "data"
+SCENARIO_PATH = os.path.join(_DATA_ROOT, "scenario")
 PATH_TO_DEMAND = os.path.join(SCENARIO_PATH, "Nachfrage.csv")
 PATH_TO_DEMAND_DISTRICT_POINTS = os.path.join(SCENARIO_PATH, "Bezirkspunkte.csv")
 PATH_TO_STATIONS = os.path.join(SCENARIO_PATH, "Haltestellen.csv")
 MEASUREMENTS = os.path.join(SCENARIO_PATH, "Messungen.csv")
 WINTERTHUR_IMAGE = os.path.join(SCENARIO_PATH, "Winterthur_Karte.png")
-PATH_TO_LINE_DATA = os.path.join(DATA_ROOT, "lines")
+PATH_TO_LINE_DATA = os.path.join(_DATA_ROOT, "lines")
 GPS_BOX = (8.61, 8.88, 47.35, 47.62)
