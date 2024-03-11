@@ -46,6 +46,7 @@ from openbus_light.plot import (
     plot_network_usage_in_swiss_coordinates,
     plot_usage_for_each_direction,
 )
+from openbus_light.plot.demand import create_od_plot
 
 
 def get_paths() -> ScenarioPaths:
@@ -140,7 +141,9 @@ def do_the_line_planning(experiment_id: str, use_current_frequencies: bool, para
     figure = create_station_and_demand_plot(
         stations=planning_data.scenario.stations, plot_background=PlotBackground(WINTERTHUR_IMAGE, GPS_BOX)
     )
-    figure.savefig(os.path.join(dump_path, "stations_and_caugt_demand.jpg"), dpi=900)
+    figure.savefig(os.path.join(dump_path, "stations_and_caught_demand.jpg"), dpi=900)
+    figure = create_od_plot(planning_data.scenario.demand_matrix, planning_data.scenario.stations)
+    figure.write_html(os.path.join(dump_path, "origin_destination_matrix.html"))
     figure = plot_network_in_swiss_coordinate_grid(
         planning_data.network, create_colormap([line.number for line in planning_data.scenario.bus_lines])
     )

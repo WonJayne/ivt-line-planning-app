@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from openbus_light.model.type import StationName
@@ -5,7 +6,7 @@ from openbus_light.model.type import StationName
 
 @dataclass(frozen=True)
 class DemandMatrix:
-    matrix: dict[StationName, dict[StationName, float]]
+    matrix: Mapping[StationName, Mapping[StationName, float]]
 
     def all_origins(self) -> tuple[StationName, ...]:
         """
@@ -38,3 +39,12 @@ class DemandMatrix:
         :return: the total demand arriving at the destination
         """
         return sum(destinations[destination] for destinations in self.matrix.values() if destination in destinations)
+
+    def all_od_pairs(self) -> tuple[tuple[StationName, StationName, float], ...]:
+        """
+        Get all the origin-destination pairs in the demand matrix.
+        :return: tuple[tuple[str, str], ...], tuple of origin-destination pairs
+        """
+        return tuple(
+            (origin, destination, flow) for origin in self.matrix for destination, flow in self.matrix[origin].items()
+        )
