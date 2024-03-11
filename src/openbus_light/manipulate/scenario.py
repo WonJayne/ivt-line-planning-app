@@ -3,7 +3,7 @@ from __future__ import annotations
 from itertools import chain
 from typing import Sequence
 
-from ..model import Capacity, PlanningScenario
+from ..model import PlanningScenario, VehicleCapacity
 from ..plan import LinePlanningParameters
 from .demand import load_demand_matrix
 from .line import BusLine, LineFactory, _equalise_travel_times_per_link, load_lines_from_json
@@ -36,7 +36,9 @@ def load_scenario(parameters: LinePlanningParameters, paths: ScenarioPaths) -> P
     :return: PlanningScenario, the LP scenario, described by demand, bus lines, walkable links and
         served stations
     """
-    line_factory = LineFactory(regular_capacity=Capacity(60), permitted_frequencies=parameters.permitted_frequencies)
+    line_factory = LineFactory(
+        regular_capacity=VehicleCapacity(60), permitted_frequencies=parameters.permitted_frequencies
+    )
     raw_lines = load_lines_from_json(line_factory, paths.to_lines)
     equalised_lines = _equalise_travel_times_per_link(raw_lines)
     all_stations_in_data = load_served_stations(paths.to_stations, raw_lines)

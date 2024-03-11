@@ -8,17 +8,20 @@ from .scenario import PlanningScenario
 from .station import Station
 from .type import (
     CHF,
-    Capacity,
+    CHFPerHour,
     CirculationId,
     DirectionName,
     DistrictName,
     DistrictPointId,
+    Hour,
     LineFrequency,
     LineName,
     LineNr,
     Meter,
     MeterPerSecond,
+    Second,
     StationName,
     TripNr,
+    VehicleCapacity,
 )
 from .walkable_distance import WalkableDistance

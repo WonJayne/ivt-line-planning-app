@@ -11,7 +11,7 @@ import pulp as pl
 from pulp import PULP_CBC_CMD, LpVariable
 from tqdm import tqdm
 
-from ..model import BusLine, Direction, LineFrequency, LineNr, PlanningScenario, StationName
+from ..model import CHF, BusLine, CHFPerHour, Direction, LineFrequency, LineNr, PlanningScenario, StationName
 from ..utils import pairwise
 from .network import Activity, LinePlanningNetwork
 from .parameters import LinePlanningParameters
@@ -63,13 +63,13 @@ class LPP:
         """
         active_lines = self._extract_active_lines()
         return LPPSolution(
-            weighted_travel_time=self._calculate_weighted_travel_times(),
+            generalised_travel_time=self._extract_generalised_travel_time(),
             active_lines=active_lines,
             used_vehicles=self._calculate_number_of_used_vehicles(active_lines),
             passengers_per_link=self._extract_passengers_per_link(active_lines),
         )
 
-    def _calculate_weighted_travel_times(self) -> MappingProxyType[Activity, timedelta]:
+    def _extract_generalised_travel_time(self) -> MappingProxyType[Activity, CHFPerHour]:
         """
         Calculate the weighted travel time of different activities (i.e. access
             time, in-vehicle time, egress time etc.).
@@ -82,7 +82,7 @@ class LPP:
         accumulated_passenger_flows = self._accumulate_flows_per_edge_index(self._get_passenger_flow_values())
         for edge_index, (link, weight) in enumerate(zip(links, weights)):
             cumulated_flows[link.activity] += sum(accumulated_passenger_flows[edge_index]) * weight
-        return MappingProxyType({key: timedelta(seconds=time) for key, time in cumulated_flows.items()})
+        return MappingProxyType({key: CHFPerHour(dt) for key, dt in cumulated_flows.items()})
 
     @staticmethod
     def _accumulate_flows_per_edge_index(
@@ -297,45 +297,43 @@ def _add_objective(data: LPPData, model: pl.LpProblem, variables: _LPPVariables)
         passenger flows and the cost of operating vehicles
     """
     weights = calculate_activity_weights(data.network, data.parameters)
-    passenger_part_in_hours = pl.lpSum(
-        weights[i] * variable / 3600 for (_, i), variable in variables.passenger_flow.items()
-    )
-    vehicle_part = 0
+    passenger_cost = pl.lpSum(weights[i] * variable for (_, i), variable in variables.passenger_flow.items())
+    vehicle_cost = 0
     for (line_index, line_freq), variable in tqdm(variables.line_configuration.items(), desc="adding objective"):
         circulation_time = _calculate_minimal_circulation_time(
             data.scenario.bus_lines[line_index - 1], data.parameters.dwell_time_at_terminal
         )
-        vehicle_part += (
+        vehicle_cost += (
             _calculate_number_of_required_vehicles(line_freq, circulation_time, data.parameters.period_duration)
             * data.parameters.vehicle_cost_per_period
             * variable
         )
-    model.objective = passenger_part_in_hours + vehicle_part
+    model.objective = passenger_cost + vehicle_cost
 
 
 def calculate_activity_weights(
     line_planning_network: LinePlanningNetwork, parameters: LinePlanningParameters
-) -> tuple[float, ...]:
+) -> tuple[CHF, ...]:
     """
     Calculate activity weights by multiplying time spent on the activity and the parameter.
     :param line_planning_network: LinePlanningNetwork, the network of the line planning problem
     :param parameters: LinePlanningParameters, a class which contains parameters for the lpp
-    :return: tuple[float, ...], a tuple which contains the weights of different activities
+    :return: tuple[CHF, ...], a tuple which contains the cost of different activities
     """
-    weights = []
+    weights: list[CHF] = []
     for link in line_planning_network.all_links:
-        total_seconds = link.duration.total_seconds()
+        total_hours = link.duration.total_seconds() / 3600
         if link.activity == Activity.ACCESS_LINE:
-            weights.append(total_seconds * parameters.waiting_time_weight)
+            weights.append(CHF(total_hours * parameters.waiting_time_cost))
             continue
         if link.activity == Activity.IN_VEHICLE:
-            weights.append(total_seconds * parameters.in_vehicle_time_weight)
+            weights.append(CHF(total_hours * parameters.in_vehicle_time_cost))
             continue
         if link.activity == Activity.WALKING:
-            weights.append(total_seconds * parameters.walking_time_weight)
+            weights.append(CHF(total_hours * parameters.walking_time_cost))
             continue
         if link.activity == Activity.EGRESS_LINE:
-            weights.append(total_seconds * parameters.egress_time_weight)
+            weights.append(CHF(total_hours * parameters.egress_time_cost))
             continue
         raise NotImplementedError(f"{link.activity} is not associated with a weighting factory")
     return tuple(weights)

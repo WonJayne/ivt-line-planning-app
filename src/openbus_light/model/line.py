@@ -1,7 +1,7 @@
 from typing import NamedTuple
 
 from .direction import Direction
-from .type import Capacity, LineFrequency, LineName, LineNr
+from .type import LineFrequency, LineName, LineNr, VehicleCapacity
 
 
 class BusLine(NamedTuple):
@@ -9,5 +9,5 @@ class BusLine(NamedTuple):
     name: LineName
     direction_a: Direction
     direction_b: Direction
-    capacity: Capacity
+    capacity: VehicleCapacity
     permitted_frequencies: tuple[LineFrequency, ...]

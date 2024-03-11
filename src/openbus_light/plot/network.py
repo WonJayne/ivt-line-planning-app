@@ -53,9 +53,11 @@ def plot_network_in_swiss_coordinate_grid(
             marker={"size": 10, "color": color},
             name="Stations",
             text=[
-                f"{node.name}"
-                if node.line_nr is None
-                else f"{node.name},<br>L:{node.line_nr},<br>D:{node.direction_name}"
+                (
+                    f"{node.name}"
+                    if node.line_nr is None
+                    else f"{node.name},<br>L:{node.line_nr},<br>D:{node.direction_name}"
+                )
                 for node in network.all_nodes
             ],
             hoverinfo="text",
@@ -211,7 +213,7 @@ def plot_network_usage_in_swiss_coordinates(
 
     # Create dummy scatter trace for the color bar
     figure.add_trace(_create_color_bar(cmap_name, 0, max_pax))
-    figure.update_layout(coloraxis={"colorbar": {"title": "Passengers", "x": 1.02, "xanchor": "left"}})
+    figure.update_layout(coloraxis={"colorbar": {"title": "Passengers", "x": -0.15, "xanchor": "left"}})
     return figure
 
 

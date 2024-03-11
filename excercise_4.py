@@ -1,14 +1,34 @@
 import os
 import pickle
 import tempfile
+from datetime import timedelta
 
 import pandas as pd
-from excercise_3 import configure_parameters, get_paths
+from excercise_3 import get_paths
 from pandas import DataFrame
 
 from openbus_light.manipulate import load_scenario
 from openbus_light.manipulate.recorded_trip import enrich_lines_with_recorded_trips
-from openbus_light.model import BusLine, LineNr, RecordedTrip
+from openbus_light.model import CHF, BusLine, CHFPerHour, LineFrequency, LineNr, Meter, MeterPerSecond, RecordedTrip
+from openbus_light.plan import LinePlanningParameters
+
+
+def configure_parameters() -> LinePlanningParameters:
+    return LinePlanningParameters(
+        period_duration=timedelta(hours=1),
+        egress_time_cost=CHFPerHour(20),
+        waiting_time_cost=CHFPerHour(40),
+        in_vehicle_time_cost=CHFPerHour(20),
+        walking_time_cost=CHFPerHour(30),
+        dwell_time_at_terminal=timedelta(seconds=300),
+        vehicle_cost_per_period=CHF(500),
+        permitted_frequencies=(LineFrequency(4), LineFrequency(6), LineFrequency(8)),
+        demand_association_radius=Meter(150),
+        walking_speed_between_stations=MeterPerSecond(0.6),
+        maximal_walking_distance=Meter(500),
+        demand_scaling=0.1,
+        maximal_number_of_vehicles=None,
+    )
 
 
 def calculate_trip_times(recorded_trip: RecordedTrip) -> pd.DataFrame:
@@ -92,4 +112,4 @@ def analysis(selected_line_numbers: frozenset[LineNr]) -> None:
 
 
 if __name__ == "__main__":
-    analysis(frozenset(range((5))))
+    analysis(frozenset(LineNr(i) for i in range((5))))

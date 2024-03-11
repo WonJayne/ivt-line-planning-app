@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import timedelta
 from functools import cached_property
 from types import MappingProxyType
 from typing import NamedTuple, Optional
 
-from ..model import BusLine, Direction, StationName
+from ..model import BusLine, CHFPerHour, Direction, StationName
 from .network import Activity, NodeName
 
 
@@ -19,7 +18,7 @@ class PassengersPerLink(NamedTuple):
 
 
 class LPPSolution(NamedTuple):
-    weighted_travel_time: MappingProxyType[Activity, timedelta]
+    generalised_travel_time: MappingProxyType[Activity, CHFPerHour]
     used_vehicles: float
     active_lines: tuple[BusLine, ...]
     passengers_per_link: MappingProxyType[BusLine, MappingProxyType[Direction, tuple[PassengersPerLink, ...]]]

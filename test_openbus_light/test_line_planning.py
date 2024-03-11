@@ -9,7 +9,6 @@ from test_openbus_light.shared import cached_scenario, test_parameters
 from openbus_light.model import (
     CHF,
     BusLine,
-    Capacity,
     DemandMatrix,
     Direction,
     LineFrequency,
@@ -19,7 +18,8 @@ from openbus_light.model import (
     PointIn2D,
     Station,
     StationName,
-    WalkableDistance,
+    VehicleCapacity,
+    WalkableDistance, CHFPerHour,
 )
 from openbus_light.plan import (
     LinePlanningNetwork,
@@ -52,7 +52,7 @@ def _create_non_walking_scenario() -> PlanningScenario:
             Direction(
                 "b", ("D", "C", "B", "A"), (timedelta(seconds=300), timedelta(seconds=300), timedelta(seconds=300))
             ),
-            capacity=Capacity(100),
+            capacity=VehicleCapacity(100),
             permitted_frequencies=(LineFrequency(1), LineFrequency(2)),
         ),
         BusLine(
@@ -60,7 +60,7 @@ def _create_non_walking_scenario() -> PlanningScenario:
             LineName("2"),
             Direction("a", ("A", "D"), (timedelta(seconds=300),)),
             Direction("b", ("D", "A"), (timedelta(seconds=300),)),
-            capacity=Capacity(100),
+            capacity=VehicleCapacity(100),
             permitted_frequencies=(LineFrequency(1), LineFrequency(2)),
         ),
     )
@@ -156,25 +156,25 @@ class LinePlanningTestCase(unittest.TestCase):
         Check in line-favored solution, whether the weighted travel time for walking is 0, and vice versa.
         """
         parameters_favoring_vehicle = test_parameters()._replace(
-            waiting_time_weight=0, in_vehicle_time_weight=1 / 300, walking_time_weight=1, vehicle_cost_per_period=CHF(0)
+            waiting_time_cost=0, in_vehicle_time_cost=CHFPerHour(1 / 300), walking_time_cost=1, vehicle_cost_per_period=CHF(0)
         )
         parameters_favoring_walking = test_parameters()._replace(
-            waiting_time_weight=0, in_vehicle_time_weight=1, walking_time_weight=1 / 300, vehicle_cost_per_period=CHF(0)
+            waiting_time_cost=0, in_vehicle_time_cost=1, walking_time_cost=CHFPerHour(1 / 300), vehicle_cost_per_period=CHF(0)
         )
         scenario_with_walking = _create_only_walking_scenario()
         result_using_line = _solve_this_lpp(parameters_favoring_vehicle, scenario_with_walking)
         result_using_walking = _solve_this_lpp(parameters_favoring_walking, scenario_with_walking)
 
-        self.assertEqual(result_using_line.solution.weighted_travel_time[Activity.WALKING].total_seconds(), 0)
+        self.assertEqual(result_using_line.solution.generalised_travel_time[Activity.WALKING] * 3600, 0)
         self.assertEqual(
-            result_using_line.solution.weighted_travel_time[Activity.IN_VEHICLE].total_seconds(),
+            result_using_line.solution.generalised_travel_time[Activity.IN_VEHICLE] * 3600,
             _calculate_total_passenger_count(scenario_with_walking) * 2,
         )
 
-        self.assertEqual(result_using_walking.solution.weighted_travel_time[Activity.ACCESS_LINE].total_seconds(), 0)
+        self.assertEqual(result_using_walking.solution.generalised_travel_time[Activity.ACCESS_LINE] * 3600, 0)
 
         self.assertEqual(
-            result_using_walking.solution.weighted_travel_time[Activity.WALKING].total_seconds(),
+            result_using_walking.solution.generalised_travel_time[Activity.WALKING] * 3600,
             _calculate_total_passenger_count(scenario_with_walking),
         )
 
@@ -185,7 +185,7 @@ class LinePlanningTestCase(unittest.TestCase):
         """
         scenario = _create_non_walking_scenario()
         zero_capacity_scenario = scenario._replace(
-            bus_lines=tuple(line._replace(capacity=Capacity(0)) for line in scenario.bus_lines)
+            bus_lines=tuple(line._replace(capacity=VehicleCapacity(0)) for line in scenario.bus_lines)
         )
         parameters_with_no_vehicles = test_parameters()._replace(maximal_number_of_vehicles=0)
 
@@ -216,27 +216,27 @@ class LinePlanningTestCase(unittest.TestCase):
             raised when attempting to access the weighted travel time for walking.
         """
         parameters_favoring_walking = test_parameters()._replace(
-            waiting_time_weight=1 / 900,
-            in_vehicle_time_weight=1 / 300,
-            walking_time_weight=0,
+            waiting_time_cost=CHFPerHour(1 / 900),
+            in_vehicle_time_cost=CHFPerHour(1 / 300),
+            walking_time_cost=0,
             vehicle_cost_per_period=CHF(0),
-            egress_time_weight=1 / 60,
+            egress_time_cost=CHFPerHour(1 / 60),
         )
         non_walking_scenario = _create_non_walking_scenario()
         only_walking_weighted_result = _solve_this_lpp(parameters_favoring_walking, non_walking_scenario)
 
         with self.assertRaises(KeyError):
-            self.assertEqual(only_walking_weighted_result.solution.weighted_travel_time[Activity.WALKING], 0)
+            self.assertEqual(only_walking_weighted_result.solution.generalised_travel_time[Activity.WALKING], 0)
         self.assertEqual(
-            only_walking_weighted_result.solution.weighted_travel_time[Activity.EGRESS_LINE].total_seconds(),
+            only_walking_weighted_result.solution.generalised_travel_time[Activity.EGRESS_LINE] * 3600,
             _calculate_total_passenger_count(non_walking_scenario),
         )
         self.assertEqual(
-            only_walking_weighted_result.solution.weighted_travel_time[Activity.IN_VEHICLE].total_seconds(),
-            _calculate_total_passenger_count(non_walking_scenario) + 100,
+            round(only_walking_weighted_result.solution.generalised_travel_time[Activity.IN_VEHICLE] * 3600),
+            round(_calculate_total_passenger_count(non_walking_scenario) + 100),
         )
         self.assertEqual(
-            only_walking_weighted_result.solution.weighted_travel_time[Activity.ACCESS_LINE].total_seconds(),
+            only_walking_weighted_result.solution.generalised_travel_time[Activity.ACCESS_LINE] * 3600,
             _calculate_total_passenger_count(non_walking_scenario),
         )
 
@@ -269,11 +269,11 @@ class LinePlanningIntegrationTestCase(unittest.TestCase):
         )
 
         parameters_only_transfer_weight = test_parameters()._replace(
-            waiting_time_weight=1,
-            in_vehicle_time_weight=0,
-            walking_time_weight=0,
+            waiting_time_cost=1,
+            in_vehicle_time_cost=0,
+            walking_time_cost=0,
             vehicle_cost_per_period=CHF(0),
-            egress_time_weight=0,
+            egress_time_cost=0,
         )
 
         result_with_2 = _solve_this_lpp(parameters_only_transfer_weight, scenario_with_frequency_2)
@@ -282,15 +282,15 @@ class LinePlanningIntegrationTestCase(unittest.TestCase):
         self.assertTrue(result_with_2.success)
         self.assertTrue(result_with_1.success)
         self.assertNotEqual(
-            result_with_2.solution.weighted_travel_time[Activity.ACCESS_LINE],
-            result_with_1.solution.weighted_travel_time[Activity.ACCESS_LINE],
+            result_with_2.solution.generalised_travel_time[Activity.ACCESS_LINE],
+            result_with_1.solution.generalised_travel_time[Activity.ACCESS_LINE],
         )
-        self.assertEqual(result_with_1.solution.weighted_travel_time[Activity.IN_VEHICLE].total_seconds(), 0)
-        self.assertEqual(result_with_2.solution.weighted_travel_time[Activity.IN_VEHICLE].total_seconds(), 0)
+        self.assertEqual(result_with_1.solution.generalised_travel_time[Activity.IN_VEHICLE], 0)
+        self.assertEqual(result_with_2.solution.generalised_travel_time[Activity.IN_VEHICLE], 0)
 
         self.assertAlmostEqual(
-            result_with_2.solution.weighted_travel_time[Activity.ACCESS_LINE].total_seconds() * 2,
-            result_with_1.solution.weighted_travel_time[Activity.ACCESS_LINE].total_seconds(),
+            result_with_2.solution.generalised_travel_time[Activity.ACCESS_LINE] * 2,
+            result_with_1.solution.generalised_travel_time[Activity.ACCESS_LINE],
             4,
         )
 
@@ -315,7 +315,7 @@ class LinePlanningIntegrationTestCase(unittest.TestCase):
         )
 
         parameters_only_transfer_weight = test_parameters()._replace(
-            waiting_time_weight=0, in_vehicle_time_weight=1, walking_time_weight=1, vehicle_cost_per_period=CHF(0)
+                waiting_time_cost=0, in_vehicle_time_cost=1, walking_time_cost=1, vehicle_cost_per_period=CHF(0)
         )
 
         result_with_2 = _solve_this_lpp(parameters_only_transfer_weight, scenario_with_frequency_2)
@@ -324,20 +324,20 @@ class LinePlanningIntegrationTestCase(unittest.TestCase):
         self.assertTrue(result_with_2.success)
         self.assertTrue(result_with_1.success)
         self.assertEqual(
-            result_with_2.solution.weighted_travel_time[Activity.ACCESS_LINE],
-            result_with_1.solution.weighted_travel_time[Activity.ACCESS_LINE],
+            result_with_2.solution.generalised_travel_time[Activity.ACCESS_LINE],
+            result_with_1.solution.generalised_travel_time[Activity.ACCESS_LINE],
         )
-        self.assertEqual(result_with_1.solution.weighted_travel_time[Activity.ACCESS_LINE].total_seconds(), 0)
-        self.assertEqual(result_with_2.solution.weighted_travel_time[Activity.ACCESS_LINE].total_seconds(), 0)
+        self.assertEqual(result_with_1.solution.generalised_travel_time[Activity.ACCESS_LINE], 0)
+        self.assertEqual(result_with_2.solution.generalised_travel_time[Activity.ACCESS_LINE], 0)
 
         self.assertAlmostEqual(
-            result_with_2.solution.weighted_travel_time[Activity.WALKING].total_seconds(),
-            result_with_1.solution.weighted_travel_time[Activity.WALKING].total_seconds(),
+            result_with_2.solution.generalised_travel_time[Activity.WALKING],
+            result_with_1.solution.generalised_travel_time[Activity.WALKING],
             100,
         )
         self.assertAlmostEqual(
-            result_with_2.solution.weighted_travel_time[Activity.IN_VEHICLE].total_seconds(),
-            result_with_1.solution.weighted_travel_time[Activity.IN_VEHICLE].total_seconds(),
+            result_with_2.solution.generalised_travel_time[Activity.IN_VEHICLE],
+            result_with_1.solution.generalised_travel_time[Activity.IN_VEHICLE],
             100,
         )
 

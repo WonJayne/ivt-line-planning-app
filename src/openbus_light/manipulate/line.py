@@ -10,7 +10,7 @@ from typing import Any, Sequence
 
 from tqdm import tqdm
 
-from ..model import BusLine, Capacity, Direction, DirectionName, LineFrequency, LineName, LineNr
+from ..model import BusLine, Direction, DirectionName, LineFrequency, LineName, LineNr, VehicleCapacity
 from ..model.type import StationName
 from .direction import update_trip_times
 
@@ -26,7 +26,7 @@ def _convert_seconds_to_timedelta(seconds: float) -> timedelta:
 
 @dataclass(frozen=True)
 class LineFactory:
-    regular_capacity: Capacity
+    regular_capacity: VehicleCapacity
     permitted_frequencies: tuple[LineFrequency, ...]
 
     def create_line_from_json(self, idx: LineNr, json_data: dict[Any, Any]) -> BusLine:
