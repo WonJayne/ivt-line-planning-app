@@ -1,12 +1,49 @@
-# PUV, TS Part (Exercise 3 & 4)
-
+# PUV, TS Part (Exercises 3 & 4)
 
 ## Setup:
 
-1. Create your venv (python 3.10) with `python -m venv venv`
-2. Activate your venv `.\venv\Scripts\activate`
-3. Install openbus_light as you find it here `pip install openbus_light-X.X.X-py3-none-any.whl`
-4. Check if everything works by running the unittests: `python -m unittest`
-5. Open any IDE of your choice and start working on `exercise_3.py` and `exercise_4.py`
+1. Clone the repository to a suitable location on your computer.
+2. Create your virtual environment (venv) using Python 3.10 with the command: `python -m venv venv`
+3. Activate your venv with `.\venv\Scripts\activate`
+4. Install `openbus_light` using the provided wheel file: `pip install openbus_light-X.X.X-py3-none-any.whl` (replace X.X.X with the actual version number).
+5. Verify the setup by running the unittests: `python -m unittest`
+6. Open your preferred IDE and begin working on `exercise_3.py` and `exercise_4.py`.
 
+## Running the Line Planning Problem Experiments (Exercise 3)
 
+The line planning problem (LPP) experiments are designed to explore the impacts of various parameters on the planning outcomes. `exercise_3.py` serves as the main script for executing these experiments in parallel.
+
+### How to Run Experiments
+
+1. Ensure both `exercise_3.py` and `solve_exercise_3.py` are present in your working directory.
+2. Execute the `solve_exercise_3.py` script from your terminal to initiate the experiments:
+    <br> `python solve_exercise_3.py` <br>
+This script will automatically run multiple configurations of the LPP in parallel, collect results, and generate insightful plots for analysis.
+
+3. Experiment summaries and plots will be saved in the `plots` directory. Review these materials to analyze the performance and outcomes of different configurations.
+
+## Analyzing Trip and Dwell Times (Exercise 4)
+
+In `exercise_4.py`, you will analyze the trip and dwell times for bus lines using recorded measurements. This involves calculating and comparing planned versus observed trip times and dwell times for selected bus lines.
+
+### How to Run Analysis
+
+1. Ensure you've completed the setup steps and have access to the necessary data files.
+2. Run `exercise_4.py`, optionally specifying the bus line numbers for analysis. This script will load bus lines with recorded measurements, calculate trip and dwell times, and prepare the data for further analysis.
+
+**Note:** The script includes a `NotImplementedError` as a placeholder for where you will need to process and display the analysis results. This is an intentional aspect of the exercise, designed to encourage you to apply what you've learned from Exercise 3, such as plotting techniques, and extend it with additional insights, like plotting data on maps or between stations.
+
+## Adding Result Plotting
+
+Result plotting provides a visual analysis of the experiment outcomes, enhancing understanding through visual means.
+
+- After executing `solve_exercise_3.py`, visit the `plots` directory to find the generated HTML files.
+- Open these files in a web browser to view the scatter and bar plots, which visualize the experiments' results. The scatter plot displays the number of vehicles versus the objective (CHF per hour), while the bar plot details the objective by activity, offering a breakdown of cost components.
+
+## Student Engagement and Adaptation
+
+Exercise 4 is purposefully left incomplete to challenge you to apply and adapt the learnings from Exercise 3. This includes utilizing plotting capabilities and integrating geographic data visualization to enrich your analysis. You are encouraged to manipulate and extend the provided code to explore creative and insightful ways of representing and analyzing the data.
+
+## Conclusion
+
+These exercises are crafted to provide a comprehensive, hands-on experience with public transport optimization, covering everything from setup and execution of line planning problems to in-depth data analysis and visualization. By following the above instructions and engaging actively with the exercises, you will deepen your understanding of transport planning challenges and solutions.
