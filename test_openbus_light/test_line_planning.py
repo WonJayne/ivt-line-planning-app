@@ -9,6 +9,7 @@ from test_openbus_light.shared import cached_scenario, test_parameters
 from openbus_light.model import (
     CHF,
     BusLine,
+    CHFPerHour,
     DemandMatrix,
     Direction,
     LineFrequency,
@@ -19,7 +20,7 @@ from openbus_light.model import (
     Station,
     StationName,
     VehicleCapacity,
-    WalkableDistance, CHFPerHour,
+    WalkableDistance,
 )
 from openbus_light.plan import (
     LinePlanningNetwork,
@@ -156,10 +157,16 @@ class LinePlanningTestCase(unittest.TestCase):
         Check in line-favored solution, whether the weighted travel time for walking is 0, and vice versa.
         """
         parameters_favoring_vehicle = test_parameters()._replace(
-            waiting_time_cost=0, in_vehicle_time_cost=CHFPerHour(1 / 300), walking_time_cost=1, vehicle_cost_per_period=CHF(0)
+            waiting_time_cost=0,
+            in_vehicle_time_cost=CHFPerHour(1 / 300),
+            walking_time_cost=1,
+            vehicle_cost_per_period=CHF(0),
         )
         parameters_favoring_walking = test_parameters()._replace(
-            waiting_time_cost=0, in_vehicle_time_cost=1, walking_time_cost=CHFPerHour(1 / 300), vehicle_cost_per_period=CHF(0)
+            waiting_time_cost=0,
+            in_vehicle_time_cost=1,
+            walking_time_cost=CHFPerHour(1 / 300),
+            vehicle_cost_per_period=CHF(0),
         )
         scenario_with_walking = _create_only_walking_scenario()
         result_using_line = _solve_this_lpp(parameters_favoring_vehicle, scenario_with_walking)
@@ -315,7 +322,7 @@ class LinePlanningIntegrationTestCase(unittest.TestCase):
         )
 
         parameters_only_transfer_weight = test_parameters()._replace(
-                waiting_time_cost=0, in_vehicle_time_cost=1, walking_time_cost=1, vehicle_cost_per_period=CHF(0)
+            waiting_time_cost=0, in_vehicle_time_cost=1, walking_time_cost=1, vehicle_cost_per_period=CHF(0)
         )
 
         result_with_2 = _solve_this_lpp(parameters_only_transfer_weight, scenario_with_frequency_2)
