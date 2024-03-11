@@ -1,4 +1,9 @@
 # Created by .ignore support plugin (hsz.mobi)
+
+# Directories that should be ignored (part of the assignment)
+results
+/results.html
+
 ### Python template
 # Byte-compiled / optimized / DLL files
 __pycache__/
