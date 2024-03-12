@@ -13,7 +13,7 @@ from _constants import (
     PATH_TO_DEMAND_DISTRICT_POINTS,
     PATH_TO_LINE_DATA,
     PATH_TO_STATIONS,
-    RESULT_DIRNAME,
+    RESULT_DIRECTORY,
     WINTERTHUR_IMAGE,
 )
 
@@ -137,7 +137,7 @@ def do_the_line_planning(experiment_id: str, use_current_frequencies: bool, para
         LinePlanningNetwork.create_from_scenario(updated_scenario, parameters.period_duration),
     )
 
-    os.makedirs((dump_path := os.path.join(RESULT_DIRNAME, experiment_id)), exist_ok=True)
+    os.makedirs((dump_path := os.path.join(RESULT_DIRECTORY, experiment_id)), exist_ok=True)
     figure = create_station_and_demand_plot(
         stations=planning_data.scenario.stations, plot_background=PlotBackground(WINTERTHUR_IMAGE, GPS_BOX)
     )
@@ -206,7 +206,7 @@ def _convert_args_to_parameters(args: argparse.Namespace) -> LinePlanningParamet
 
 def main() -> None:
     """
-    Main function. Parse the arguments and do the line planning. All the results will be saved in the folder "plots".
+    Main function. Parse the arguments and do the line planning. All the results will be saved in RESULT_DIRNAME.
     :return: None
     """
 

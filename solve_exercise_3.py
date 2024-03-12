@@ -8,7 +8,7 @@ from enum import IntEnum, unique
 from typing import Sequence
 
 import plotly.graph_objects as go
-from _constants import RESULT_DIRNAME
+from _constants import RESULT_DIRECTORY
 from plotly.subplots import make_subplots
 
 from openbus_light.model import CHFPerHour
@@ -139,13 +139,13 @@ def main() -> None:
             executor.submit(_run_experiment, [f"--experiment_id={_Experiment(experiment_id).name}"] + args)
 
     file_paths = [
-        os.path.join(RESULT_DIRNAME, f"{experiment.name}", f"{experiment.name}.Summary.json")
+        os.path.join(RESULT_DIRECTORY, f"{experiment.name}", f"{experiment.name}.Summary.json")
         for experiment in parametrised_experiments.keys()
     ]
     result_figure = _plot_results_with_subplots([extract_data_from_json(file_path) for file_path in file_paths])
     result_figure.write_html(
         os.path.join(
-            RESULT_DIRNAME,
+            RESULT_DIRECTORY,
             f"result_{'_'.join(map(lambda x: str(x.value) ,sorted(parametrised_experiments.keys())))}.html",
         )
     )
