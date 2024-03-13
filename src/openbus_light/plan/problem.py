@@ -61,10 +61,9 @@ class LPP:
             of decision variables that optimize the result.
         :return: LPPSolution, the values of decision variables
         """
-        active_lines = self._extract_active_lines()
         return LPPSolution(
             generalised_travel_time=self._extract_generalised_travel_time(),
-            active_lines=active_lines,
+            active_lines=(active_lines := self._extract_active_lines()),
             used_vehicles=self._calculate_number_of_used_vehicles(active_lines),
             passengers_per_link=self._extract_passengers_per_link(active_lines),
         )

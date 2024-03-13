@@ -20,7 +20,7 @@ The line planning problem (LPP) experiments are designed to explore the impacts 
     <br> `python solve_exercise_3.py` <br>
 This script will automatically run multiple configurations of the LPP in parallel, collect results, and generate insightful plots for analysis.
 
-3. Experiment summaries and plots will be saved in the `plots` directory. Review these materials to analyze the performance and outcomes of different configurations.
+3. Experiment summaries and plots will be saved in the `results` directory. Review these materials to analyze the performance and outcomes of different configurations.
 
 ## Analyzing Trip and Dwell Times (Exercise 4)
 
@@ -37,7 +37,7 @@ In `exercise_4.py`, you will analyze the trip and dwell times for bus lines usin
 
 Result plotting provides a visual analysis of the experiment outcomes, enhancing understanding through visual means.
 
-- After executing `solve_exercise_3.py`, visit the `plots` directory to find the generated HTML files.
+- After executing `solve_exercise_3.py`, visit the `results` directory to find the generated HTML files.
 - Open these files in a web browser to view the scatter and bar plots, which visualize the experiments' results. The scatter plot displays the number of vehicles versus the objective (CHF per hour), while the bar plot details the objective by activity, offering a breakdown of cost components.
 
 ## Student Engagement and Adaptation

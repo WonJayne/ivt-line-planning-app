@@ -206,7 +206,7 @@ def _convert_args_to_parameters(args: argparse.Namespace) -> LinePlanningParamet
 
 def main() -> None:
     """
-    Main function. Parse the arguments and do the line planning. All the results will be saved in RESULT_DIRNAME.
+    Main function. Parse the arguments and do the line planning. All the results will be saved in RESULT_DIRECTORY.
     :return: None
     """
 
