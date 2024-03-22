@@ -1,16 +1,22 @@
 import os
 import pickle
 import tempfile
+from collections import defaultdict
 from datetime import timedelta
+from typing import AbstractSet
 
 import pandas as pd
+import plotly.graph_objects as go
+from _constants import RESULT_DIRECTORY
 from exercise_3 import get_paths
 from pandas import DataFrame
+from tqdm import tqdm
 
 from openbus_light.manipulate import load_scenario
 from openbus_light.manipulate.recorded_trip import enrich_lines_with_recorded_trips
 from openbus_light.model import CHF, BusLine, CHFPerHour, LineFrequency, LineNr, Meter, MeterPerSecond, RecordedTrip
 from openbus_light.plan import LinePlanningParameters
+from openbus_light.utils import pairwise
 
 
 def configure_parameters() -> LinePlanningParameters:
@@ -73,7 +79,7 @@ def calculate_dwell_times(recorded_trip: RecordedTrip) -> DataFrame:
     return pd.DataFrame({"dwell_time_planned": dwell_time_planned, "dwell_time_observed": dwell_time_observed})
 
 
-def load_bus_lines_with_measurements(selected_line_numbers: frozenset[LineNr]) -> tuple[BusLine, ...]:
+def load_bus_lines_with_measurements(selected_line_numbers: AbstractSet[LineNr]) -> tuple[BusLine, ...]:
     """
     Load the bus lines with recorded measurements, enrich lines with recorded trips, and cache the result.
     :param selected_line_numbers: frozenset[int], numbers of the bus lines
@@ -97,7 +103,7 @@ def load_bus_lines_with_measurements(selected_line_numbers: frozenset[LineNr]) -
     return lines_with_recordings
 
 
-def analysis(selected_line_numbers: frozenset[LineNr]) -> None:
+def analysis(selected_line_numbers: AbstractSet[LineNr]) -> None:
     """
     Calculate the trip times and dwell times of the bus lines and their trips.
     :param selected_line_numbers: frozenset[int], bus line numbers
@@ -105,11 +111,49 @@ def analysis(selected_line_numbers: frozenset[LineNr]) -> None:
     lines_with_recordings = load_bus_lines_with_measurements(selected_line_numbers)
     for line in lines_with_recordings:
         for direction in (line.direction_a, line.direction_b):
-            for record in direction.recorded_trips:
-                trip_times = calculate_trip_times(record)
-                dwell_times = calculate_dwell_times(record)
-                raise ValueError("Not implemented yet")
+            trip_times_by_station_pair = defaultdict(list)
+            dwell_times_by_station = defaultdict(list)
+            for trip in tqdm(direction.recorded_trips, desc=f"Analyzing {line.number} {direction.name}"):
+                stations = trip.record["station_name"]
+                observed_trip_times = calculate_trip_times(trip)["trip_time_observed"]
+                for (a, b), trip_time in zip(pairwise(stations), observed_trip_times):
+                    trip_times_by_station_pair[(a, b)].append(trip_time.total_seconds())
+                observed_dwell_times = calculate_dwell_times(trip)["dwell_time_observed"]
+                for dwell_time, station in zip(observed_dwell_times, stations):
+                    dwell_times_by_station[station].append(dwell_time.total_seconds())
+
+            # Now, let's create the violin plot for the trip times.
+            fig = go.Figure()
+
+            # Adding a violin plot for each station pair.
+            for a, b in direction.station_names_as_pairs:
+                observed_dwell_times = trip_times_by_station_pair[(a, b)]
+                fig.add_trace(go.Violin(y=observed_dwell_times, name=f"{a} to {b} (n={len(observed_dwell_times)})"))
+
+            fig.update_layout(
+                title=f"Observed Trip Times for line {line.name}, direction {direction.name}",
+                yaxis_title="Trip Time (seconds)",
+                xaxis_title="Station Pair",
+            )
+            dump_path = os.path.join(f"{RESULT_DIRECTORY}", "Analysis", f"{line.name}")
+            os.makedirs(dump_path, exist_ok=True)
+            fig.write_html(os.path.join(dump_path, f"trip_times_violin_example_{direction.name}.html"))
+
+            # Now, let's create the violin plot for the dwell times.
+            fig = go.Figure()
+
+            # Adding a violin plot for each station.
+            for station in direction.station_sequence:
+                observed_dwell_times = dwell_times_by_station[station]
+                fig.add_trace(go.Violin(y=observed_dwell_times, name=f"{station} (n={len(observed_dwell_times)})"))
+
+            fig.update_layout(
+                title=f"Observed Dwell Times for line {line.name}, direction {direction.name}",
+                yaxis_title="Dwell Time (seconds)",
+                xaxis_title="Station",
+            )
+            fig.write_html(os.path.join(dump_path, f"dwell_times_violin_example_{direction.name}.html"))
 
 
 if __name__ == "__main__":
-    analysis(frozenset(LineNr(i) for i in range((5))))
+    analysis(frozenset(LineNr(i) for i in range(12)))

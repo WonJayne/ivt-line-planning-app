@@ -1,14 +1,16 @@
 import warnings
 import zipfile
 from collections import defaultdict
+from collections.abc import KeysView
 from dataclasses import replace
 from enum import IntEnum
 from itertools import chain
-from typing import Any, Collection, Iterable, Mapping, Optional, Sequence
+from types import MappingProxyType
+from typing import Any, Collection, Iterable, Mapping, NamedTuple, Optional, Sequence
 
 import pandas as pd
 
-from ..model import BusLine, Direction, RecordedTrip, TripNr
+from ..model import BusLine, Direction, DirectionName, LineName, RecordedTrip, StationName, TripNr
 from ..utils import pairwise, skip_one_line_in_file
 
 
@@ -31,9 +33,10 @@ def enrich_lines_with_recorded_trips(path: str, lines: Collection[BusLine]) -> t
             raw_measurements = pd.read_csv(file_handle, sep=";", encoding="utf-8", dtype=str)
 
     enriched_lines = []
-    lines_by_number = {str(line.number): line for line in lines}
+    lines_by_name = {line.name: line for line in lines}
     for line_id, grouped_measurements in raw_measurements.groupby("LINIEN_TEXT"):
-        if line_id not in lines_by_number:
+        line_id = LineName(str(line_id))
+        if line_id not in lines_by_name:
             continue
         first_conversion = _convert_these_columns_to_datetime(
             grouped_measurements, ("ANKUNFTSZEIT", "ABFAHRTSZEIT"), "%d.%m.%Y %H:%M"
@@ -41,7 +44,7 @@ def enrich_lines_with_recorded_trips(path: str, lines: Collection[BusLine]) -> t
         second_conversion = _convert_these_columns_to_datetime(
             first_conversion, ("AN_PROGNOSE", "AB_PROGNOSE"), "%d.%m.%Y %H:%M:%S"
         )
-        enriched_lines.append(_add_recorded_trips_to_line(lines_by_number[line_id], second_conversion))
+        enriched_lines.append(_add_recorded_trips_to_line(lines_by_name[line_id], second_conversion))
     return tuple(enriched_lines)
 
 
@@ -79,16 +82,17 @@ def __is_the_end_of_a_run(row_as_tuple: tuple[Any, ...]) -> bool:
     return pd.isnull(row_as_tuple.ABFAHRTSZEIT)  # type: ignore
 
 
-def _find_index_of_start_and_end_pairs(measurements: pd.DataFrame) -> tuple[tuple[int, int], ...]:
+class _Event(IntEnum):
+    START = 1
+    END = -1
+
+
+def _find_indices_of_start_and_end_pairs(measurements: pd.DataFrame) -> tuple[tuple[int, int], ...]:
     """
     Find the pair of indices of start and end of a run.
     :param measurements: pd.DataFrame, dataframe containing information of the run
     :return: tuple[tuple[int, int], ...], tuple of pairs of start and end index
     """
-
-    class _Event(IntEnum):
-        START = 1
-        END = -1
 
     first_departure_with_index = (
         (_Event.START, i) for i, row in enumerate(measurements.itertuples(index=False)) if __is_the_start_of_a_run(row)
@@ -107,21 +111,23 @@ def _find_index_of_start_and_end_pairs(measurements: pd.DataFrame) -> tuple[tupl
 
 
 def _extract_recorded_trips(
-    line_nr: int, measurements: pd.DataFrame, pairs: Collection[tuple[int, int]]
-) -> dict[tuple[str, str], tuple[RecordedTrip, ...]]:
+    line_id: LineName, measurements: pd.DataFrame, pairs: Collection[tuple[int, int]]
+) -> dict[tuple[StationName, StationName], Sequence[RecordedTrip]]:
     """
-    Extract recorded trips of a specific bus line.
-    :param line_nr: int, bus line number
-    :param measurements: pd.DataFrame, dataframe containing trips information
-    :param pairs: Collection[tuple[int, int]], a collection of start and end indices of run
-    :return: dict[tuple[str, str], tuple[RecordedTrip, ...]], a dict where the key is the
-        start and end of a trip, and the value is tuple of RecordedTrip
+    Extract recorded trips from the measurements.
+    :param line_id: LineName, name of the bus line
+    :param measurements: pd.DataFrame, dataframe containing information of the run
+    :param pairs: Collection[tuple[int, int]], pairs of start and end index
+    :return: dict[tuple[StationName, StationName], Sequence[RecordedTrip]],
+    start station and end station with recorded trips
     """
-    recorded_trips_by_start_end = defaultdict(list)
 
-    for begin, end in pairs:
+    recorded_trips_by_start_end = defaultdict(list)
+    for i, (begin, end) in enumerate(pairs):
         recorded_trip = RecordedTrip(
-            number=TripNr(line_nr),
+            line=line_id,
+            direction=DirectionName("UNDEFINED"),
+            trip_nr=TripNr(i),
             circulation_id=measurements.iloc[begin].UMLAUF_ID,
             start=measurements.iloc[begin].HALTESTELLEN_NAME,
             end=measurements.iloc[end].HALTESTELLEN_NAME,
@@ -142,19 +148,32 @@ def _extract_recorded_trips(
     return {key: tuple(value) for key, value in recorded_trips_by_start_end.items()}
 
 
-def __get_stop_name_order(direction: Direction) -> dict[str, int]:
-    """
-    Get the order of station names in the direction.
-    :param direction: Direction, direction of the bus line
-    :return: dict[str, int], a dict where the key is the station name, and value is its order in the
-        direction
-    """
-    count = 0
-    return {name: (count := count + 1) for name in direction.station_sequence}
+class StationOrdering(NamedTuple):
+    first_occurrence: MappingProxyType[StationName, int]
+    last_occurrence: MappingProxyType[StationName, int]
+
+    @classmethod
+    def from_direction(cls, direction: Direction) -> "StationOrdering":
+        """
+        Create a StationOrdering from a Direction.
+        :param direction: Direction, the direction
+        :return: StationOrdering, the station ordering
+        """
+        return cls(
+            MappingProxyType({name: i for i, name in (reversed(tuple(enumerate(direction.station_sequence))))}),
+            MappingProxyType({name: i for i, name in enumerate(direction.station_sequence)}),
+        )
+
+    @property
+    def keys(self) -> KeysView[StationName]:
+        return self.first_occurrence.keys()
+
+    def contains(self, station: StationName) -> bool:
+        return station in self.first_occurrence and station in self.last_occurrence
 
 
 def _assign_recorded_trips_to_directions(
-    line: BusLine, recorded_trips: Mapping[tuple[str, str], Sequence[RecordedTrip]]
+    line: BusLine, recorded_trips: Mapping[tuple[StationName, StationName], Sequence[RecordedTrip]]
 ) -> tuple[tuple[RecordedTrip, ...], tuple[RecordedTrip, ...], tuple[RecordedTrip, ...]]:
     """
     Assign recorded trips to directions, if the order of start station is smaller than
@@ -167,29 +186,32 @@ def _assign_recorded_trips_to_directions(
         contains a tuple for recorded trips in direction a, a tuple for direction b, and a tuple
         for missed trips
     """
-    stops_order_direction_a = __get_stop_name_order(line.direction_a)
-    stop_order_direction_b = __get_stop_name_order(line.direction_b)
+    order_direction_a = StationOrdering.from_direction(line.direction_a)
+    order_direction_b = StationOrdering.from_direction(line.direction_b)
 
     recorded_trips_in_direction_a: list[RecordedTrip] = []
     recorded_trips_in_direction_b: list[RecordedTrip] = []
     missed_trips: list[RecordedTrip] = []
 
+    if line.name == LineName("4"):
+        print(f"{line.name=}")
+
     for (start, end), trips in recorded_trips.items():
         are_in_direction_a = (
-            start in stops_order_direction_a
-            and end in stops_order_direction_a
-            and stops_order_direction_a[start] < stops_order_direction_a[end]
+            order_direction_a.contains(start)
+            and order_direction_a.contains(end)
+            and order_direction_a.first_occurrence[start] < order_direction_a.last_occurrence[end]
         )
         if are_in_direction_a:
-            recorded_trips_in_direction_a.extend(trips)
+            recorded_trips_in_direction_a.extend(t._replace(direction=line.direction_a.name) for t in trips)
             continue
         are_in_direction_b = (
-            start in stop_order_direction_b
-            and end in stop_order_direction_b
-            and stop_order_direction_b[start] < stop_order_direction_b[end]
+            order_direction_b.contains(start)
+            and order_direction_b.contains(end)
+            and order_direction_b.first_occurrence[start] < order_direction_b.last_occurrence[end]
         )
         if are_in_direction_b:
-            recorded_trips_in_direction_b.extend(trips)
+            recorded_trips_in_direction_b.extend(t._replace(direction=line.direction_b.name) for t in trips)
             continue
         missed_trips.extend(trips)
 
@@ -203,15 +225,17 @@ def _add_recorded_trips_to_line(line: BusLine, raw_recordings: pd.DataFrame) -> 
     :param raw_recordings: pd.DataFrame, dataframe containing trips information
     :return: BusLine, bus line with recorded trips added in the directions
     """
-    index_pairs = _find_index_of_start_and_end_pairs(raw_recordings)
-    recorded_trips = _extract_recorded_trips(line.number, raw_recordings, index_pairs)
+    index_pairs = _find_indices_of_start_and_end_pairs(raw_recordings)
+    recorded_trips = _extract_recorded_trips(line.name, raw_recordings, index_pairs)
     in_direction_a, in_direction_b, no_direction = _assign_recorded_trips_to_directions(line, recorded_trips)
     if len(no_direction) > 0:
         warnings.warn(
-            f"There are some measurements ({len(no_direction)}) in {line.number} "
-            f"that cannot be assigned a direction ",
+            f"There are some measurements ({len(no_direction)}) in {line.number=}, {line.name=}\n"
+            f"that cannot be assigned a direction \n"
+            f"while {len(in_direction_a)} and {len(in_direction_b)} are assigned to the directions.",
             UserWarning,
         )
-    updated_direction_a = replace(line.direction_a, recorded_trips=in_direction_a)
-    updated_direction_b = replace(line.direction_b, recorded_trips=in_direction_b)
-    return line._replace(direction_a=updated_direction_a, direction_b=updated_direction_b)
+    return line._replace(
+        direction_a=replace(line.direction_a, recorded_trips=in_direction_a),
+        direction_b=replace(line.direction_b, recorded_trips=in_direction_b),
+    )

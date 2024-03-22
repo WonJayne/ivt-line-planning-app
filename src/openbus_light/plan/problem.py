@@ -64,7 +64,7 @@ class LPP:
         return LPPSolution(
             generalised_travel_time=self._extract_generalised_travel_time(),
             active_lines=(active_lines := self._extract_active_lines()),
-            used_vehicles=self._calculate_number_of_used_vehicles(active_lines),
+            used_vehicles=self._calculate_number_of_used_vehicles(active_lines),  # type: ignore
             passengers_per_link=self._extract_passengers_per_link(active_lines),
         )
 
