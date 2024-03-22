@@ -50,6 +50,7 @@ if "%option%"=="--all" (
     echo Building code...
     call :build_install_and_test
     call :install_in_user_venv
+    call :run_tests
     goto :eof
 )
 
@@ -110,14 +111,15 @@ goto :eof
     goto :eof
 
 :build_install_and_test
-    call :run_tests
     echo building your package (that is in .\\src)
     rem delete old stuff first (complete dist)
     rd /s /q "dist"
     call %venv_activation% & py -m build
     echo installing your package (using the .whl in dist)
     for /f "delims=" %%i in ('dir .\\dist\\*.whl /s /b') do set "wheel_file=%%i"
-    call %venv_activation% & pip install %wheel_file% --force-reinstall
+    call %venv_activation% & pip uninstall -y openbus-light
+    call %venv_activation% & pip install %wheel_file%
+    call :run_tests
     goto :eof
 
 :usage
@@ -148,4 +150,5 @@ goto :eof
 
 :install_in_user_venv
     for /f "delims=" %%i in ('dir .\\dist\\*.whl /s /b') do set "wheel_file=%%i"
-    call venv\Scripts\activate & pip install %wheel_file% --force-reinstall
+    call venv\Scripts\activate & pip uninstall -y openbus-light
+    call venv\Scripts\activate & pip install %wheel_file%
