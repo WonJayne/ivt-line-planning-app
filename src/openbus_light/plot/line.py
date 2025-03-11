@@ -35,7 +35,7 @@ def create_station_and_line_plot(
             station.center_position.long, station.center_position.lat, zorder=1, alpha=1, c="k", s=20, label="Stations"
         )
 
-    for direction in chain.from_iterable((line.direction_a, line.direction_b) for line in lines):
+    for direction in chain.from_iterable((line.direction_up, line.direction_down) for line in lines):
         axis.plot(
             [center_lookup[s_name].long for s_name in direction.station_sequence],
             [center_lookup[s_name].lat for s_name in direction.station_sequence],
@@ -85,7 +85,7 @@ def plot_lines_in_swiss_coordinates(
     )
 
     line_direction_pairs = tuple(
-        chain.from_iterable(((line, line.direction_a), (line, line.direction_b)) for line in lines)
+        chain.from_iterable(((line, line.direction_up), (line, line.direction_down)) for line in lines)
     )
 
     # Generate offsets to distinguish between lines/line_direction_pairs

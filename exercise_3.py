@@ -1,6 +1,5 @@
 import argparse
 import json
-import os
 import uuid
 from collections import defaultdict
 from datetime import timedelta
@@ -103,18 +102,28 @@ def update_scenario(
 
     if use_current_frequencies:
         new_frequencies_by_line_id = {
-            LineNr(0): (LineFrequency(6),),
-            LineNr(1): (LineFrequency(6),),
-            LineNr(2): (LineFrequency(6),),
-            LineNr(3): (LineFrequency(6),),
+            LineNr(0): (LineFrequency(8),),
+            LineNr(1): (LineFrequency(8),),
+            LineNr(2): (LineFrequency(8),),
+            LineNr(3): (LineFrequency(8),),
             LineNr(4): (LineFrequency(6),),
-            LineNr(5): (LineFrequency(5),),
+            LineNr(5): (LineFrequency(4),),
             LineNr(6): (LineFrequency(8),),
-            LineNr(7): (LineFrequency(6),),
+            LineNr(7): (LineFrequency(5),),
         }
     else:
         new_frequencies_by_line_id = defaultdict(lambda: parameters.permitted_frequencies)
-    capacities_by_line_id = {0: 100, 1: 100, 2: 65, 3: 65, 4: 65, 5: 65, 6: 40, 7: 40}
+
+    capacities_by_line_id = {
+        LineNr(0): VehicleCapacity(90),
+        LineNr(1): VehicleCapacity(65),
+        LineNr(2): VehicleCapacity(65),
+        LineNr(3): VehicleCapacity(65),
+        LineNr(4): VehicleCapacity(65),
+        LineNr(5): VehicleCapacity(65),
+        LineNr(6): VehicleCapacity(65),
+        LineNr(7): VehicleCapacity(45),
+    }
     updated_scenario = update_capacities(baseline_scenario, capacities_by_line_id)
     return update_frequencies(updated_scenario, new_frequencies_by_line_id)
 
@@ -137,17 +146,17 @@ def do_the_line_planning(experiment_id: str, use_current_frequencies: bool, para
         LinePlanningNetwork.create_from_scenario(updated_scenario, parameters.period_duration),
     )
 
-    os.makedirs((dump_path := os.path.join(RESULT_DIRECTORY, experiment_id)), exist_ok=True)
+    (dump_path := (RESULT_DIRECTORY / experiment_id)).mkdir(parents=True, exist_ok=True)
     figure = create_station_and_demand_plot(
         stations=planning_data.scenario.stations, plot_background=PlotBackground(WINTERTHUR_IMAGE, GPS_BOX)
     )
-    figure.savefig(os.path.join(dump_path, "stations_and_caught_demand.jpg"), dpi=900)
+    figure.savefig(dump_path / "stations_and_caught_demand.jpg", dpi=900)
     figure = create_od_plot(planning_data.scenario.demand_matrix, planning_data.scenario.stations)
-    figure.write_html(os.path.join(dump_path, "origin_destination_matrix.html"))
+    figure.write_html(dump_path / "origin_destination_matrix.html")
     figure = plot_network_in_swiss_coordinate_grid(
         planning_data.network, create_colormap([line.number for line in planning_data.scenario.bus_lines])
     )
-    figure.write_html(os.path.join(dump_path, "network_in_swiss_coordinates.html"))
+    figure.write_html(dump_path / "network_in_swiss_coordinates.html")
 
     lpp = create_line_planning_problem(planning_data)
     print("Solving the line planning problem...")
@@ -158,26 +167,25 @@ def do_the_line_planning(experiment_id: str, use_current_frequencies: bool, para
     if not result.success:
         raise UserWarning("No optimal solution found, please check the parameters.")
 
-    os.makedirs(dump_path, exist_ok=True)
     for line, passengers in result.solution.passengers_per_link.items():
         plot_usage_for_each_direction(line, passengers).write_html(
-            os.path.join(dump_path, f"available_vs_used_capacity_for_line_{line.number}.html")
+            (dump_path / f"available_vs_used_capacity_for_line_{line.number}.html")
         )
     create_station_and_line_plot(
         stations=planning_data.scenario.stations,
         lines=planning_data.scenario.bus_lines,
         plot_background=PlotBackground(WINTERTHUR_IMAGE, GPS_BOX),
-    ).savefig(os.path.join(dump_path, "network.jpg"), dpi=900)
+    ).savefig(dump_path / "network.jpg", dpi=900)
     plot_lines_in_swiss_coordinates(
         stations=planning_data.scenario.stations, lines=planning_data.scenario.bus_lines
-    ).write_html(os.path.join(dump_path, "lines_in_swiss_coordinates.html"))
+    ).write_html(dump_path / "lines_in_swiss_coordinates.html")
     plot_network_usage_in_swiss_coordinates(
         planning_data.network, result.solution, scale_with_capacity=True
-    ).write_html(os.path.join(dump_path, "scaled_network_with_passengers_per_link_in_swiss_coordinates.html"))
+    ).write_html(dump_path / "scaled_network_with_passengers_per_link_in_swiss_coordinates.html")
     plot_network_usage_in_swiss_coordinates(
         planning_data.network, result.solution, scale_with_capacity=False
-    ).write_html(os.path.join(dump_path, "network_with_passengers_per_link_in_swiss_coordinates.html"))
-    with open(os.path.join(dump_path, f"{experiment_id}.Summary.json"), "w") as f:
+    ).write_html(dump_path / "network_with_passengers_per_link_in_swiss_coordinates.html")
+    with open(dump_path / f"{experiment_id}.Summary.json", "w") as f:
         json.dump(create_summary(planning_data, result), f, indent=4)
 
 
@@ -227,13 +235,13 @@ def main() -> None:
         "--permitted_frequencies",
         type=int,
         nargs="+",
-        default=[4, 6, 8],
+        default=[4, 6, 8, 10],
         help="In 1/Period, Permitted frequencies for the lines in the line planning problem.",
     )
     parser.add_argument(
         "--demand_association_radius",
         type=int,
-        default=300,
+        default=Meter(450),
         help="In meter. Radius of the demand association from a demand point to a station, distance is as crow flies.",
     )
     parser.add_argument(
@@ -245,7 +253,7 @@ def main() -> None:
     parser.add_argument(
         "--maximal_walking_distance",
         type=int,
-        default=300,
+        default=Meter(300),
         help="In meter. Maximal walking distance between a demand point and a station, distance is as crow flies.",
     )
     parser.add_argument(

@@ -1,12 +1,40 @@
-# PUV, TS Part (Exercises 3 & 4)
+# IVT Public Transport Optimization Exercises (PUV, TS Part)
+
+This repository contains exercises developed by the **Institute for Transport Planning and Systems (IVT) at ETH Zurich**. These exercises focus on **public transport optimization**, covering topics like line planning, timetable evaluation, and operational performance analysis.
 
 ## Setup:
 
+You can now install `openbus_light` directly from PyPI:
+
+```bash
+pip install openbus-light
+```
+
+Alternatively, if you prefer using the provided wheel file:
+
 1. Clone the repository to a suitable location on your computer.
-2. Create your virtual environment (venv) using Python 3.10 with the command: `python -m venv venv`
-3. Activate your venv with `.\venv\Scripts\activate`
-4. Install `openbus_light` using the provided wheel file: `pip install openbus_light-X.X.X-py3-none-any.whl` (replace X.X.X with the actual version number).
-5. Verify the setup by running the unittests: `python -m unittest`
+2. Create your virtual environment (venv) using Python 3.10 with the command:
+   ```bash
+   python -m venv venv
+   ```
+3. Activate your venv:
+   - On Windows:
+     ```bash
+     .\venv\Scripts\activate
+     ```
+   - On macOS/Linux:
+     ```bash
+     source venv/bin/activate
+     ```
+4. Install `openbus_light` using the provided wheel file:
+   ```bash
+   pip install openbus_light-X.X.X-py3-none-any.whl
+   ```
+   (Replace `X.X.X` with the actual version number.)
+5. Verify the setup by running the unittests:
+   ```bash
+   python -m unittest
+   ```
 6. Open your preferred IDE and begin working on `exercise_3.py` and `exercise_4.py`.
 
 ## Running the Line Planning Problem Experiments (Exercise 3)
@@ -17,9 +45,10 @@ The line planning problem (LPP) experiments are designed to explore the impacts 
 
 1. Ensure both `exercise_3.py` and `solve_exercise_3.py` are present in your working directory.
 2. Execute the `solve_exercise_3.py` script from your terminal to initiate the experiments:
-    <br> `python solve_exercise_3.py` <br>
-This script will automatically run multiple configurations of the LPP in parallel, collect results, and generate insightful plots for analysis.
-
+   ```bash
+   python solve_exercise_3.py
+   ```
+   This script will automatically run multiple configurations of the LPP in parallel, collect results, and generate insightful plots for analysis.
 3. Experiment summaries and plots will be saved in the `results` directory. Review these materials to analyze the performance and outcomes of different configurations.
 
 ## Analyzing Trip and Dwell Times (Exercise 4)
@@ -47,3 +76,5 @@ Exercise 4 is purposefully left incomplete to challenge you to apply and adapt t
 ## Conclusion
 
 These exercises are crafted to provide a comprehensive, hands-on experience with public transport optimization, covering everything from setup and execution of line planning problems to in-depth data analysis and visualization. By following the above instructions and engaging actively with the exercises, you will deepen your understanding of transport planning challenges and solutions.
+
+This project is part of the **Institute for Transport Planning and Systems (IVT) at ETH Zurich** and is used in educational settings for students to gain hands-on experience in public transport optimization.

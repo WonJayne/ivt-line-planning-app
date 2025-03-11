@@ -130,8 +130,8 @@ def _calculate_number_of_vehicles(scenario_with_frequency_1: PlanningScenario) -
     return sum(
         ceil(
             (
-                sum(dt.total_seconds() for dt in line.direction_a.trip_times)
-                + sum(dt.total_seconds() for dt in line.direction_b.trip_times)
+                sum(dt.total_seconds() for dt in line.direction_up.trip_times)
+                + sum(dt.total_seconds() for dt in line.direction_down.trip_times)
                 + 2 * test_parameters().dwell_time_at_terminal.total_seconds()
             )
             / test_parameters().period_duration.total_seconds()

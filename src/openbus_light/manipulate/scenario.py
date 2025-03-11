@@ -21,7 +21,7 @@ def _drop_stations_that_are_not_served(stations: Sequence[Station], lines: Seque
     """
     names_of_served_stations = set(
         chain.from_iterable(
-            chain.from_iterable((line.direction_a.station_sequence, line.direction_b.station_sequence))
+            chain.from_iterable((line.direction_up.station_sequence, line.direction_down.station_sequence))
             for line in lines
         )
     )

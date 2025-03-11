@@ -5,6 +5,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import timedelta
 from itertools import chain
+from pathlib import Path
 from statistics import mean
 from typing import Any, Sequence
 
@@ -59,7 +60,7 @@ class LineFactory:
         return BusLine(idx, line_name, direction_a, direction_b, self.regular_capacity, self.permitted_frequencies)
 
 
-def load_lines_from_json(line_factory: LineFactory, path_to_lines: str) -> tuple[BusLine, ...]:
+def load_lines_from_json(line_factory: LineFactory, path_to_lines: Path) -> tuple[BusLine, ...]:
     """
     Iterate over each json file and create bus lines from the data.
     :param line_factory: LineFactory, contains capacity and permitted frequency of lines
@@ -68,7 +69,7 @@ def load_lines_from_json(line_factory: LineFactory, path_to_lines: str) -> tuple
     """
     loaded_lines: list[BusLine] = []
     all_files_to_load = glob.glob(os.path.join(path_to_lines, "*.json"))
-    for i, line_to_load in enumerate(tqdm(all_files_to_load, desc="importing lines", colour="green")):
+    for i, line_to_load in enumerate(tqdm(all_files_to_load, desc="importing lines", colour="blue")):
         with open(line_to_load, encoding="utf-8") as json_file:
             loaded_lines.append(line_factory.create_line_from_json(LineNr(i), json.load(json_file)))
     return tuple(loaded_lines)
@@ -83,8 +84,8 @@ def _equalise_travel_times_per_link(lines: Sequence[BusLine]) -> tuple[BusLine, 
     average_travel_time_per_link = _calculate_average_travel_time_per_link(lines)
     return tuple(
         line._replace(
-            direction_a=update_trip_times(average_travel_time_per_link, line.direction_a),
-            direction_b=update_trip_times(average_travel_time_per_link, line.direction_b),
+            direction_up=update_trip_times(average_travel_time_per_link, line.direction_up),
+            direction_down=update_trip_times(average_travel_time_per_link, line.direction_down),
         )
         for line in lines
     )
@@ -100,7 +101,7 @@ def _calculate_average_travel_time_per_link(
         and value is the average travel time of the link
     """
     travel_times_per_link: dict[tuple[StationName, StationName], list[float]] = defaultdict(list)
-    for direction in chain.from_iterable((line.direction_a, line.direction_b) for line in lines):
+    for direction in chain.from_iterable((line.direction_up, line.direction_down) for line in lines):
         for (source, target), time_delta in direction.trip_time_by_pair():
             travel_times_per_link[(source, target)].append(time_delta.total_seconds())
     return {k: timedelta(seconds=round(mean(v))) for k, v in travel_times_per_link.items()}

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import zipfile
 from itertools import chain
+from pathlib import Path
 from typing import Collection
 
 import pandas as pd
@@ -13,7 +14,7 @@ from ..model.type import StationName
 from ..utils import skip_one_line_in_file
 
 
-def load_served_stations(path_to_stations: str, lines: Collection[BusLine]) -> tuple[Station, ...]:
+def load_served_stations(path_to_stations: Path, lines: Collection[BusLine]) -> tuple[Station, ...]:
     """
     Load served stations and the coordinates.
     :param path_to_stations: str, name of file with contains station information
@@ -22,16 +23,16 @@ def load_served_stations(path_to_stations: str, lines: Collection[BusLine]) -> t
     """
     served_station_names = frozenset(
         chain.from_iterable(
-            chain.from_iterable((line.direction_a.station_sequence, line.direction_b.station_sequence))
+            chain.from_iterable((line.direction_up.station_sequence, line.direction_down.station_sequence))
             for line in lines
         )
     )
-    if path_to_stations.endswith(".zip"):
+    if path_to_stations.suffix == ".zip":
         with zipfile.ZipFile(path_to_stations, "r") as zip_file:
             with zip_file.open(zip_file.namelist()[0], "r") as file_handle:
                 skip_one_line_in_file(file_handle)
                 stations_df = pd.read_csv(file_handle, sep=";", encoding="utf-8", dtype=str)
-    elif path_to_stations.endswith(".csv"):
+    elif path_to_stations.suffix == ".csv":
         with open(path_to_stations, encoding="utf-8") as file_handle:
             skip_one_line_in_file(file_handle)
             stations_df = pd.read_csv(file_handle, sep=";", encoding="utf-8", dtype=str)

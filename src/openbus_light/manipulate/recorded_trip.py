@@ -5,6 +5,7 @@ from collections.abc import KeysView
 from dataclasses import replace
 from enum import IntEnum
 from itertools import chain
+from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Collection, Iterable, Mapping, NamedTuple, Optional, Sequence
 
@@ -14,7 +15,7 @@ from ..model import BusLine, Direction, DirectionName, LineName, RecordedTrip, S
 from ..utils import pairwise, skip_one_line_in_file
 
 
-def enrich_lines_with_recorded_trips(path: str, lines: Collection[BusLine]) -> tuple[BusLine, ...]:
+def enrich_lines_with_recorded_trips(path: Path, lines: Collection[BusLine]) -> tuple[BusLine, ...]:
     """
     Enrich lines by converting specified columns to datetime format, and adding recorded trips
         in the directions of bus lines.
@@ -22,7 +23,7 @@ def enrich_lines_with_recorded_trips(path: str, lines: Collection[BusLine]) -> t
     :param lines: Collection[BusLine], collection of bus lines
     :return: tuple[BusLine], a tuple of enriched BusLines
     """
-    if path.endswith(".zip"):
+    if path.suffix == ".zip":
         with zipfile.ZipFile(path, "r") as zip_file:
             with zip_file.open(zip_file.namelist()[0], "r") as file_handle:
                 skip_one_line_in_file(file_handle)
@@ -186,15 +187,12 @@ def _assign_recorded_trips_to_directions(
         contains a tuple for recorded trips in direction a, a tuple for direction b, and a tuple
         for missed trips
     """
-    order_direction_a = StationOrdering.from_direction(line.direction_a)
-    order_direction_b = StationOrdering.from_direction(line.direction_b)
+    order_direction_a = StationOrdering.from_direction(line.direction_up)
+    order_direction_b = StationOrdering.from_direction(line.direction_down)
 
     recorded_trips_in_direction_a: list[RecordedTrip] = []
     recorded_trips_in_direction_b: list[RecordedTrip] = []
     missed_trips: list[RecordedTrip] = []
-
-    if line.name == LineName("4"):
-        print(f"{line.name=}")
 
     for (start, end), trips in recorded_trips.items():
         are_in_direction_a = (
@@ -203,7 +201,7 @@ def _assign_recorded_trips_to_directions(
             and order_direction_a.first_occurrence[start] < order_direction_a.last_occurrence[end]
         )
         if are_in_direction_a:
-            recorded_trips_in_direction_a.extend(t._replace(direction=line.direction_a.name) for t in trips)
+            recorded_trips_in_direction_a.extend(t._replace(direction=line.direction_up.name) for t in trips)
             continue
         are_in_direction_b = (
             order_direction_b.contains(start)
@@ -211,7 +209,7 @@ def _assign_recorded_trips_to_directions(
             and order_direction_b.first_occurrence[start] < order_direction_b.last_occurrence[end]
         )
         if are_in_direction_b:
-            recorded_trips_in_direction_b.extend(t._replace(direction=line.direction_b.name) for t in trips)
+            recorded_trips_in_direction_b.extend(t._replace(direction=line.direction_down.name) for t in trips)
             continue
         missed_trips.extend(trips)
 
@@ -233,9 +231,9 @@ def _add_recorded_trips_to_line(line: BusLine, raw_recordings: pd.DataFrame) -> 
             f"There are some measurements ({len(no_direction)}) in {line.number=}, {line.name=}\n"
             f"that cannot be assigned a direction \n"
             f"while {len(in_direction_a)} and {len(in_direction_b)} are assigned to the directions.",
-            UserWarning,
+            RuntimeWarning,
         )
     return line._replace(
-        direction_a=replace(line.direction_a, recorded_trips=in_direction_a),
-        direction_b=replace(line.direction_b, recorded_trips=in_direction_b),
+        direction_up=replace(line.direction_up, recorded_trips=in_direction_a),
+        direction_down=replace(line.direction_down, recorded_trips=in_direction_b),
     )

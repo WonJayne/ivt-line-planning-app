@@ -1,7 +1,8 @@
-from typing import Collection, Mapping, NamedTuple, Sequence
+from typing import Mapping, NamedTuple, Sequence
 
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.container import BarContainer
 from plotly.graph_objs import graph_objs as go
 from plotly.subplots import make_subplots
 
@@ -25,8 +26,8 @@ def _create_alignment_of_stop_sequences(
 ) -> tuple[tuple[_StationPair | None, ...], tuple[_StationPair | None, ...]]:
     aligned_a: list[_StationPair | None] = []
     aligned_b: list[_StationPair | None] = []
-    pairs_a = [_StationPair(*pair) for pair in bus_line.direction_a.station_names_as_pairs]
-    pairs_b = [_StationPair(b, a) for a, b in bus_line.direction_b.station_names_as_pairs]
+    pairs_a = [_StationPair(*pair) for pair in bus_line.direction_up.station_names_as_pairs]
+    pairs_b = [_StationPair(b, a) for a, b in bus_line.direction_down.station_names_as_pairs]
     pairs_b.reverse()
     i, j = 0, 0
     while i < len(pairs_a) or j < len(pairs_b):
@@ -58,10 +59,10 @@ def _map_passenger_count_to_station_pairs(
     pax_lookup = {
         _StationPair(section.start_station, section.end_station): section.pax for section in passengers_in_direction_a
     }
-    return tuple(pax_lookup.pop(section) if section in pax_lookup else np.NAN for section in aligned_station_pairs)
+    return tuple(pax_lookup.pop(section) if section in pax_lookup else np.nan for section in aligned_station_pairs)
 
 
-def _add_bar_plot_to_axis(values_to_add: Collection[float], left_axis: plt.Axes, label: str) -> plt.Axes:
+def _add_bar_plot_to_axis(values_to_add: Sequence[float], left_axis: plt.Axes, label: str) -> BarContainer:
     return left_axis.barh(tuple(range(len(values_to_add))), values_to_add, label=label)
 
 
@@ -69,8 +70,12 @@ def plot_usage_for_each_direction(
     line: BusLine, pax_by_link_and_direction: Mapping[Direction, Sequence[PassengersPerLink]]
 ) -> go.Figure:
     aligned_a, aligned_b = _create_alignment_of_stop_sequences(line)
-    count_in_direction_a = _map_passenger_count_to_station_pairs(aligned_a, pax_by_link_and_direction[line.direction_a])
-    count_in_direction_b = _map_passenger_count_to_station_pairs(aligned_b, pax_by_link_and_direction[line.direction_b])
+    count_in_direction_a = _map_passenger_count_to_station_pairs(
+        aligned_a, pax_by_link_and_direction[line.direction_up]
+    )
+    count_in_direction_b = _map_passenger_count_to_station_pairs(
+        aligned_b, pax_by_link_and_direction[line.direction_down]
+    )
 
     available_capacity = line.capacity * line.permitted_frequencies[0]
 

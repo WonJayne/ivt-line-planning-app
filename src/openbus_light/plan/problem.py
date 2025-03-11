@@ -85,7 +85,7 @@ class LPP:
 
     @staticmethod
     def _accumulate_flows_per_edge_index(
-        passenger_flows: dict[tuple[StationName, int], float]
+        passenger_flows: dict[tuple[StationName, int], float],
     ) -> defaultdict[int, list[float]]:
         """
         Accumulate the passenger flows by edge.
@@ -145,7 +145,7 @@ class LPP:
         accumulated_passenger_flows = self._accumulate_flows_per_edge_index(flows)
         for line in active_lines:
             passengers_per_line[line] = {}
-            for direction in (line.direction_a, line.direction_b):
+            for direction in (line.direction_up, line.direction_down):
                 node_names = tuple(
                     create_line_node_name(station_name, line, direction) for station_name in direction.station_sequence
                 )
@@ -262,7 +262,7 @@ def _calculate_minimal_circulation_time(line: BusLine, dwell_time_at_terminal: t
     :return: timedelta, circulation time, which is the sum of travel time and dwell time
     """
     in_seconds = dwell_time_at_terminal.total_seconds() * 2 + sum(
-        dt.total_seconds() for dt in chain.from_iterable((line.direction_a.trip_times, line.direction_b.trip_times))
+        dt.total_seconds() for dt in chain.from_iterable((line.direction_up.trip_times, line.direction_down.trip_times))
     )
     return timedelta(seconds=in_seconds)
 

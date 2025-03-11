@@ -46,21 +46,18 @@ def create_station_and_demand_plot(stations: Collection[Station], plot_backgroun
         c="r",
         s=5,
     )
-    axis.lines.extend(
-        (
-            Line2D(
-                [station.center_position.long, point.position.long],
-                [station.center_position.lat, point.position.lat],
-                linewidth=0.75,
-                # linestyle="--",
-                color=[0, 0, 1],
-                alpha=0.5,
-                zorder=3,
+    for station in stations:
+        for point in station.district_points:
+            axis.add_line(
+                Line2D(
+                    [station.center_position.long, point.position.long],
+                    [station.center_position.lat, point.position.lat],
+                    linewidth=0.75,
+                    color=(0.0, 0.0, 1.0),
+                    alpha=0.5,
+                    zorder=3,
+                )
             )
-            for station in stations
-            for point in station.district_points
-        )
-    )
     return figure
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from collections import Counter
 from itertools import chain, product
+from pathlib import Path
 from typing import Collection, Sequence
 
 import numpy as np
@@ -16,7 +17,7 @@ from .paths import ScenarioPaths
 from .point import calculate_distance_in_m
 
 
-def _load_all_district_points(path_to_demand_district_points: str) -> tuple[DistrictPoint, ...]:
+def _load_all_district_points(path_to_demand_district_points: Path) -> tuple[DistrictPoint, ...]:
     """
     Load all district points. From file convert to DistrictPoints.
     :param path_to_demand_district_points: str, path and name of the file
@@ -111,7 +112,7 @@ def _map_demand_from_districts_to_stations(
 
 
 def _sort_from_station_to_other_stations(
-    from_station_to_other_stations: dict[StationName, dict[StationName, float]]
+    from_station_to_other_stations: dict[StationName, dict[StationName, float]],
 ) -> dict[StationName, dict[StationName, float]]:
     """
     Sort the dictionary alphabetically based on origin names and destination names.
@@ -150,7 +151,7 @@ def _distribute_demand_between_districts(
     }
 
 
-def _load_all_demanded_relations(path_to_demand: str) -> dict[tuple[DistrictName, DistrictName], float]:
+def _load_all_demanded_relations(path_to_demand: Path) -> dict[tuple[DistrictName, DistrictName], float]:
     """
     Load all the origins and destinations with the demand between them.
     :param path_to_demand: str, path and name of the file
@@ -161,6 +162,6 @@ def _load_all_demanded_relations(path_to_demand: str) -> dict[tuple[DistrictName
         skip_one_line_in_file(file)
         raw_demand = pd.read_csv(file, sep=",", encoding="utf-8", dtype=str)
         return {
-            (DistrictName(relation.FROM), DistrictName(relation.TO)): round(float(relation.DEMAND), 4)
+            (DistrictName(relation.FROM), DistrictName(relation.TO)): round(float(relation.DEMAND) * 1.87, 4)
             for relation in raw_demand.itertuples(index=False)
         }

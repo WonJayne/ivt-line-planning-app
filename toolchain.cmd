@@ -61,6 +61,12 @@ if "%option%"=="--test" (
     goto :eof
 )
 
+if "%option%"=="--publish" (
+    echo Publishing Package to PyPI...
+    call :upload_to_pypi
+    goto :eof
+)
+
 echo Done, I'm fucking off now!
 call :usage
 goto :eof
@@ -87,8 +93,6 @@ goto :eof
     rem reformat code
     echo isort sorting your imports (does not remove unrequired ones):
     call %venv_activation% & isort .
-    echo pipreqs updating your requirements.txt (with compatibility mode package~=A.B.C):
-    call %venv_activation% & pipreqs --mode compat --force --ignore venv,build_venv --savepath requirements.txt .\\src
     call :update_pyproject_toml_from_requirements
     echo reformatting your code with black:
     call %venv_activation% & black .
@@ -140,6 +144,7 @@ goto :eof
     echo --install      Install package (in venv)
     echo --all          execute --reformat, --check, --score, --build, and --install
     echo --test         Run unit tests
+    echo --publish      Publish package to PyPI
     echo -h, --help     Display this help message
     echo.
     goto :eof
@@ -152,3 +157,11 @@ goto :eof
     for /f "delims=" %%i in ('dir .\\dist\\*.whl /s /b') do set "wheel_file=%%i"
     call venv\Scripts\activate & pip uninstall -y openbus-light
     call venv\Scripts\activate & pip install %wheel_file%
+
+
+
+:upload_to_pypi
+    echo Uploading package to PyPI...
+    call %venv_activation% & py -m pip install --upgrade twine
+    call %venv_activation% & py -m twine upload --repository pypi dist/*
+    goto :eof

@@ -58,34 +58,34 @@ def calculate_trip_times(recorded_trip: RecordedTrip) -> pd.DataFrame:
     return pd.DataFrame({"trip_time_planned": trip_time_planned, "trip_time_observed": trip_time_observed})
 
 
-def calculate_dwell_times(recorded_trip: RecordedTrip) -> DataFrame:
+def calculate_dwell_times(recorded: RecordedTrip) -> DataFrame:
     """
     Calculate the planned and observed dwell time at each stop in a recorded trip.
-    :param recorded_trip: RecordedTrip, contains trip information
+    :param recorded: RecordedTrip, contains trip information
     :return: DataFrame, contains two columns, each recording the planned and observed dwell time
     """
     dwell_time_planned = (
         departure - arrival
         for arrival, departure in zip(
-            recorded_trip.record["arrival_planned"][1:-1], recorded_trip.record["departure_planned"][1:-1]
+            recorded.record["arrival_planned"][1:-1], recorded.record["departure_planned"][1:-1]
         )
     )
     dwell_time_observed = (
         departure - arrival
         for arrival, departure in zip(
-            recorded_trip.record["arrival_observed"][1:-1], recorded_trip.record["departure_observed"][1:-1]
+            recorded.record["arrival_observed"][1:-1], recorded.record["departure_observed"][1:-1]
         )
     )
     return pd.DataFrame({"dwell_time_planned": dwell_time_planned, "dwell_time_observed": dwell_time_observed})
 
 
-def load_bus_lines_with_measurements(selected_line_numbers: AbstractSet[LineNr]) -> tuple[BusLine, ...]:
+def load_bus_lines_with_measurements(selected: AbstractSet[LineNr]) -> tuple[BusLine, ...]:
     """
     Load the bus lines with recorded measurements, enrich lines with recorded trips, and cache the result.
-    :param selected_line_numbers: frozenset[int], numbers of the bus lines
-    :return: tuple[BusLine, ...], enriched bus lines
+    :param selected: frozenset[LineNr], numbers of the bus lines
+    :return: tuple[BusLine, ...], enriched bus lines (with recorded trips)
     """
-    cache_key = "$".join(map(str, sorted(selected_line_numbers)))
+    cache_key = "$".join(map(str, sorted(selected)))
     cache_filename = os.path.join(tempfile.gettempdir(), ".open_bus_light_cache", f"{cache_key}.pickle")
     if os.path.exists(cache_filename):
         with open(cache_filename, "rb") as f:
@@ -95,7 +95,7 @@ def load_bus_lines_with_measurements(selected_line_numbers: AbstractSet[LineNr])
     parameters = configure_parameters()
     baseline_scenario = load_scenario(parameters, paths)
     baseline_scenario.check_consistency()
-    selected_lines = {line for line in baseline_scenario.bus_lines if line.number in selected_line_numbers}
+    selected_lines = {line for line in baseline_scenario.bus_lines if line.number in selected}
     lines_with_recordings = enrich_lines_with_recorded_trips(paths.to_measurements, selected_lines)
     os.makedirs(os.path.dirname(cache_filename), exist_ok=True)
     with open(cache_filename, "wb") as f:
@@ -103,14 +103,13 @@ def load_bus_lines_with_measurements(selected_line_numbers: AbstractSet[LineNr])
     return lines_with_recordings
 
 
-def analysis(selected_line_numbers: AbstractSet[LineNr]) -> None:
+def analysis_template(selected_line_numbers: AbstractSet[LineNr]) -> None:
     """
     Calculate the trip times and dwell times of the bus lines and their trips.
-    :param selected_line_numbers: frozenset[int], bus line numbers
+    :param selected_line_numbers: AbstractSet[int], bus line numbers
     """
-    lines_with_recordings = load_bus_lines_with_measurements(selected_line_numbers)
-    for line in lines_with_recordings:
-        for direction in (line.direction_a, line.direction_b):
+    for line in load_bus_lines_with_measurements(selected_line_numbers):
+        for direction in (line.direction_up, line.direction_down):
             trip_times_by_station_pair = defaultdict(list)
             dwell_times_by_station = defaultdict(list)
             for trip in tqdm(direction.recorded_trips, desc=f"Analyzing {line.number} {direction.name}"):
@@ -156,4 +155,4 @@ def analysis(selected_line_numbers: AbstractSet[LineNr]) -> None:
 
 
 if __name__ == "__main__":
-    analysis(frozenset(LineNr(i) for i in range(12)))
+    analysis_template(frozenset((LineNr(1), LineNr(0), LineNr(2), LineNr(3), LineNr(4), LineNr(5), LineNr(6))))

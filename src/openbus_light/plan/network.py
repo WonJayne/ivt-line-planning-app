@@ -133,7 +133,7 @@ class LinePlanningNetwork:
         nodes_to_add: set[LPNNode] = set()
         links_to_add: list[tuple[tuple[NodeName, NodeName], LPNLink]] = []
         lines_with_directions = (
-            (line, direction) for line in scenario.bus_lines for direction in (line.direction_a, line.direction_b)
+            (line, direction) for line in scenario.bus_lines for direction in (line.direction_up, line.direction_down)
         )
         station_coordinates = {station.name: station.center_position for station in scenario.stations}
         for line, direction in lines_with_directions:
