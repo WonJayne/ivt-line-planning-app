@@ -5,13 +5,15 @@ import sys
 from collections.abc import Mapping
 from concurrent.futures import ProcessPoolExecutor
 from enum import IntEnum, unique
+from pathlib import Path
 from typing import Sequence
 
 import plotly.graph_objects as go
 from _constants import RESULT_DIRECTORY
 from plotly.subplots import make_subplots
 
-from openbus_light.model import CHFPerHour
+from openbus_light.model import CHF
+from openbus_light.plan import Summary
 from openbus_light.plan.network import Activity
 from openbus_light.plot import create_colormap
 
@@ -56,7 +58,7 @@ def _map_parameters_to_experiment_id() -> Mapping[_Experiment, list[str]]:
     }
 
 
-def _plot_results_with_subplots(data: Sequence[tuple[_Experiment, int, Mapping[Activity, CHFPerHour]]]) -> go.Figure:
+def _plot_results_with_subplots(data: Sequence[tuple[_Experiment, int, Mapping[Activity, CHF], CHF]]) -> go.Figure:
     """
     Plots the results of the experiments with subplots: One for the scatter plot of overall generalised_travel_times,
     and another for the bar plot showing the composition of the generalised_travel_times by activity.
@@ -72,59 +74,90 @@ def _plot_results_with_subplots(data: Sequence[tuple[_Experiment, int, Mapping[A
     )
 
     # Scatter plot for overall objective
-    for experiment_id, number_of_vehicles, generalised_travel_times in data:
+    cmap = create_colormap([experiment_id.name for experiment_id, _, _, _ in data] + list(Activity))
+    for experiment_id, number_of_vehicles, generalised_travel_times, total_cost in data:
+        figure.add_trace(
+            go.Scatter(
+                x=[number_of_vehicles],
+                y=[total_cost],
+                mode="markers",
+                name=str(experiment_id.name),
+                showlegend=True,
+                legendgroup="Total Cost",
+                marker={"color": cmap[experiment_id.name], "symbol": "star"},
+            ),
+            row=1,
+            col=1,
+        )
         figure.add_trace(
             go.Scatter(
                 x=[number_of_vehicles],
                 y=[sum(generalised_travel_times.values())],
                 mode="markers",
-                name=str(experiment_id),
+                name=str(experiment_id.name),
                 showlegend=True,
+                legendgroup="Generalised Travel Times",
+                marker={"color": cmap[experiment_id.name], "symbol": "square"},
             ),
             row=1,
             col=1,
         )
 
     # Stacked bar plot for objective composition by activity
-    activity_colormap = create_colormap(Activity)
-    experiments_ran = [experiment_id.name for experiment_id, _, _ in data]
+    experiments_ran = [experiment_id.name for experiment_id, _, _, _ in data]
     for activity in Activity:
         figure.add_trace(
             go.Bar(
                 x=experiments_ran,
                 y=[result[2].get(activity, 0) for result in data],
-                name=str(activity),
-                marker={"color": activity_colormap[activity]},
+                name=str(activity.name),
+                marker={"color": cmap[activity]},
                 showlegend=True,
             ),
             row=1,
             col=2,
         ),
 
+    # add one more trace for the total cost
+    figure.add_trace(
+        go.Bar(
+            x=experiments_ran,
+            y=[result[3] - sum(result[2].values()) for result in data],
+            name="Vehicle Cost",
+            marker={"color": "black"},
+            showlegend=True,
+        ),
+        row=1,
+        col=2,
+    )
+
     # Make the bars stacked
     figure.update_layout(barmode="stack", title_text="Experiment Results: Objective Analysis")
 
     figure.update_xaxes(title_text="Number of Vehicles", row=1, col=1, range=[0, None])
-    figure.update_yaxes(title_text="Overall Objective (CHFPerHour)", row=1, col=1, range=[0, None])
+    figure.update_yaxes(title_text="Overall Objective (CHF/Period)", row=1, col=1, range=[0, None])
     figure.update_xaxes(title_text="Experiment ID", row=1, col=2)
-    figure.update_yaxes(title_text="Objective by Activity (CHFPerHour)", row=1, col=2)
+    figure.update_yaxes(title_text="Objective by Activity (CHF/Period)", row=1, col=2)
 
     return figure
 
 
-def extract_data_from_json(file_path: str) -> tuple[_Experiment, int, Mapping[Activity, CHFPerHour]]:
+def extract_data_from_json(file_path: Path) -> tuple[_Experiment, int, Mapping[Activity, CHF], CHF]:
     """
     Extracts the experiment ID, the number of vehicles used, and the objective decomposed by Activity from a JSON file.
-    :param file_path: str, path to the JSON file
+    :param file_path: Path, path to the JSON file
     :return: tuple[_Experiment, int, Mapping[Activity, CHFPerHour]], experiment ID, number of vehicles, and objective
     """
 
     with open(file_path, "r") as file:
-        data = json.load(file)
-        experiment_id = os.path.split(file_path)[-1].split(".")[0]
+        data: Summary = json.load(file)
+        experiment_id = file_path.stem.split(".")[0]
         number_of_vehicles = data["used_vehicles"]
-        passenger_cost = {Activity[key]: CHFPerHour(value) for key, value in data["weighted_cost_per_activity"].items()}
-        return _Experiment[experiment_id], number_of_vehicles, passenger_cost
+        passenger_cost = {Activity[key]: CHF(value) for key, value in data["weighted_cost_per_activity"].items()}
+        total_cost = CHF(
+            sum(passenger_cost.values()) + number_of_vehicles * data["used_parameters"]["vehicle_cost_per_period"]
+        )
+        return _Experiment(_Experiment[experiment_id]), number_of_vehicles, passenger_cost, total_cost
 
 
 def main() -> None:
@@ -139,15 +172,13 @@ def main() -> None:
             executor.submit(_run_experiment, [f"--experiment_id={_Experiment(experiment_id).name}"] + args)
 
     file_paths = [
-        os.path.join(RESULT_DIRECTORY, f"{experiment.name}", f"{experiment.name}.Summary.json")
+        RESULT_DIRECTORY / f"{experiment.name}" / f"{experiment.name}.Summary.json"
         for experiment in parametrised_experiments.keys()
     ]
     result_figure = _plot_results_with_subplots([extract_data_from_json(file_path) for file_path in file_paths])
     result_figure.write_html(
-        os.path.join(
-            RESULT_DIRECTORY,
-            f"result_{'_'.join(map(lambda x: str(x.value) ,sorted(parametrised_experiments.keys())))}.html",
-        )
+        RESULT_DIRECTORY
+        / f"result_{'_'.join(map(lambda x: str(x.value), sorted(parametrised_experiments.keys())))}.html"
     )
     result_figure.show()
 

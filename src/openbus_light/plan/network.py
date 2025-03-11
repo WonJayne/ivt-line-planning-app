@@ -54,9 +54,15 @@ class NodesForOneDirection(NamedTuple):
     transfer_nodes: tuple[LPNNode, ...]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True, eq=False, repr=False)
 class LinePlanningNetwork:
     graph: igraph.Graph
+
+    def __eq__(self, other: object) -> bool:
+        raise NotImplementedError("Equality comparison is not implemented for LinePlanningNetwork")
+
+    def __repr__(self) -> str:
+        return f"LinePlanningNetwork(graph=(n:{self.graph.vcount()}l:{self.graph.ecount()})"
 
     def __post_init__(self) -> None:
         """

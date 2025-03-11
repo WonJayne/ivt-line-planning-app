@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from openbus_light.model.type import StationName
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DemandMatrix:
     matrix: Mapping[StationName, Mapping[StationName, float]]
 

@@ -1,7 +1,16 @@
 from datetime import timedelta
 from typing import TypedDict
 
-from openbus_light.model.type import CHF, Hour, LineFrequency, LineNr, Meter, MeterPerSecond, Second, VehicleCapacity
+from openbus_light.model.type import (
+    CHF,
+    CHFPerHour,
+    LineFrequency,
+    LineNr,
+    Meter,
+    MeterPerSecond,
+    Second,
+    VehicleCapacity,
+)
 
 from .problem import LPPData
 from .result import LPPResult
@@ -34,10 +43,11 @@ class LineDict(TypedDict):
 class Summary(TypedDict):
     used_parameters: ParameterDict
     total_passengers_transported: float
-    weighted_time_per_activity: dict[str, Hour]
+    weighted_cost_per_activity: dict[str, CHFPerHour]
     number_of_demand_relations: int
     active_lines: list[LineDict]
     used_vehicles: int
+    total_cost: CHF
 
 
 def create_summary(planning_data: LPPData, result: LPPResult) -> Summary:
@@ -48,6 +58,10 @@ def create_summary(planning_data: LPPData, result: LPPResult) -> Summary:
     )
 
     solution = result.solution
+    total_cost = (
+        sum(solution.generalised_travel_time.values())
+        + solution.used_vehicles * planning_data.parameters.vehicle_cost_per_period
+    )
 
     return {
         "used_parameters": (
@@ -66,4 +80,5 @@ def create_summary(planning_data: LPPData, result: LPPResult) -> Summary:
             for line in sorted(solution.active_lines, key=lambda x: x.number)
         ],
         "used_vehicles": round(solution.used_vehicles),
+        "total_cost": CHF(total_cost),
     }
