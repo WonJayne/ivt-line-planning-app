@@ -1,5 +1,14 @@
 # IVT Public Transport Optimization Exercises (PUV, TS Part)
 
+[![PyPI version](https://badge.fury.io/py/openbus-light.svg)](https://badge.fury.io/py/openbus-light)
+[![Downloads](https://pepy.tech/badge/openbus-light)](https://pepy.tech/project/openbus-light)
+![black](https://img.shields.io/badge/code%20style-black-000000.svg)
+![isort](https://img.shields.io/badge/%20imports-isort-%231674b1.svg)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![mypyc](https://img.shields.io/badge/mypy%20checked-100%25-brightgreen)
+![flake8](https://img.shields.io/badge/flake8%20checked-100%25-brightgreen)
+![pylint](https://img.shields.io/badge/pylint%20checked-100%25-brightgreen)
+
 This repository contains exercises developed by the **Institute for Transport Planning and Systems (IVT) at ETH Zurich**. These exercises focus on **public transport optimization**, covering topics like line planning, timetable evaluation, and operational performance analysis.
 
 ## Setup:
