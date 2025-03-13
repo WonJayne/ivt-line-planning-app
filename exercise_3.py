@@ -167,6 +167,9 @@ def do_the_line_planning(experiment_id: str, use_current_frequencies: bool, para
     if not result.success:
         raise UserWarning("No optimal solution found, please check the parameters.")
 
+    with open(dump_path / f"{experiment_id}.Summary.json", "w") as f:
+        json.dump(create_summary(planning_data, result), f, indent=4)
+
     for line, passengers in result.solution.passengers_per_link.items():
         plot_usage_for_each_direction(line, passengers).write_html(
             (dump_path / f"available_vs_used_capacity_for_line_{line.number}.html")
@@ -185,8 +188,6 @@ def do_the_line_planning(experiment_id: str, use_current_frequencies: bool, para
     plot_network_usage_in_swiss_coordinates(
         planning_data.network, result.solution, scale_with_capacity=False
     ).write_html(dump_path / "network_with_passengers_per_link_in_swiss_coordinates.html")
-    with open(dump_path / f"{experiment_id}.Summary.json", "w") as f:
-        json.dump(create_summary(planning_data, result), f, indent=4)
 
 
 def _convert_args_to_parameters(args: argparse.Namespace) -> LinePlanningParameters:
@@ -235,7 +236,7 @@ def main() -> None:
         "--permitted_frequencies",
         type=int,
         nargs="+",
-        default=[4, 6, 8, 10],
+        default=[1, 2, 4, 6, 8, 10],
         help="In 1/Period, Permitted frequencies for the lines in the line planning problem.",
     )
     parser.add_argument(

@@ -165,7 +165,7 @@ def plot_network_usage_in_swiss_coordinates(
         continuous_scale, normaliser = create_continuous_colormap(0, 1, cmap_name)
         max_pax = 1.0
     else:
-        max_pax = max(all_passenger_per_link, key=lambda ppl: ppl.pax).pax
+        max_pax = max(all_passenger_per_link, key=lambda ppl: ppl.pax).pax if len(all_passenger_per_link) > 0 else 100
         continuous_scale, normaliser = create_continuous_colormap(0, max_pax, cmap_name)
         capacity_by_line = {}  # should raise a key error if used, deliberately not used
     passengers_by_end_nodes = {(rel.start_node, rel.end_node): rel.pax for rel in all_passenger_per_link}

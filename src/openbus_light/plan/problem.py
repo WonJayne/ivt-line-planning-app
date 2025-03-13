@@ -386,17 +386,19 @@ def _add_flow_conservation_constraints(model: pl.LpProblem, variables: _LPPVaria
         (lpp_graph.incident(i, mode="in"), lpp_graph.incident(i, mode="out")) for i in lpp_graph.vs.indices
     ]
     flow_balance_at_nodes = np.zeros((lpp_graph.vcount(), 1))
-    for origin in tqdm(data.scenario.demand_matrix.all_origins(), desc="adding flow conservation constraints"):
+    for origin_station in tqdm(data.scenario.demand_matrix.all_origins(), desc="adding flow conservation constraints"):
         flow_balance_at_nodes *= 0
-        for station_name, outflow in data.scenario.demand_matrix.matrix[origin].items():
-            node_index = lpp_graph.vs.find(name=lpp_network.egress_node_name_from_station_name(station_name)).index
+        for station_name, outflow in data.scenario.demand_matrix.matrix[origin_station].items():
+            if station_name == origin_station:
+                continue
+            node_index = lpp_graph.vs.find(name=lpp_network.transfer_node_name_from_station_name(station_name)).index
             flow_balance_at_nodes[node_index] = round(-outflow, 2)
-        origin_index = lpp_graph.vs.find(name=lpp_network.access_node_name_from_station_name(origin)).index
+        origin_index = lpp_graph.vs.find(name=lpp_network.transfer_node_name_from_station_name(origin_station)).index
         flow_balance_at_nodes[origin_index] = -sum(flow_balance_at_nodes)
         for flow_balance, (incoming_indices, outgoing_indices) in zip(flow_balance_at_nodes, node_incidences):
             model.addConstraint(
-                pl.lpSum(variables.passenger_flow[origin, i] for i in incoming_indices)
-                - pl.lpSum(variables.passenger_flow[origin, i] for i in outgoing_indices)
+                pl.lpSum(variables.passenger_flow[origin_station, i] for i in incoming_indices)
+                - pl.lpSum(variables.passenger_flow[origin_station, i] for i in outgoing_indices)
                 == -flow_balance
             )
 
