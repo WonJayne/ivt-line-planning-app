@@ -255,14 +255,16 @@ def main() -> None:
         "--maximal_walking_distance",
         type=int,
         default=Meter(300),
-        help="In meter. Maximal walking distance between a demand point and a station, distance is as crow flies.",
+        help="In meter. Maximal walking distance between two station to transfer, distance is as crow flies.",
     )
     parser.add_argument(
         "--demand_scaling",
         type=float,
         default=0.1,
-        help="Scaling factor for the demand. The demand is multiplied by this factor. "
-        "0.0 means no demand, 1.0 means the entire daily demand.",
+        help=(
+            "Scaling factor for the demand. The demand is multiplied by this factor. "
+            + "0.0 means no demand, 1.0 means the entire daily demand."
+        ),
     )
     parser.add_argument(
         "--maximal_number_of_vehicles",

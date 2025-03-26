@@ -68,7 +68,7 @@ def load_lines_from_json(line_factory: LineFactory, path_to_lines: Path) -> tupl
     :return: tuple[BusLine, ...], a tuple containing the loaded BusLine objects
     """
     loaded_lines: list[BusLine] = []
-    all_files_to_load = glob.glob(os.path.join(path_to_lines, "*.json"))
+    all_files_to_load = sorted(glob.glob(os.path.join(path_to_lines, "*.json")))
     for i, line_to_load in enumerate(tqdm(all_files_to_load, desc="importing lines", colour="blue")):
         with open(line_to_load, encoding="utf-8") as json_file:
             loaded_lines.append(line_factory.create_line_from_json(LineNr(i), json.load(json_file)))
