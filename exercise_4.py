@@ -118,7 +118,7 @@ def analysis_template(selected_line_numbers: AbstractSet[LineNr]) -> None:
                 for (a, b), trip_time in zip(pairwise(stations), observed_trip_times):
                     trip_times_by_station_pair[(a, b)].append(trip_time.total_seconds())
                 observed_dwell_times = calculate_dwell_times(trip)["dwell_time_observed"]
-                for dwell_time, station in zip(observed_dwell_times, stations):
+                for dwell_time, station in zip(observed_dwell_times, stations[1:1]):
                     dwell_times_by_station[station].append(dwell_time.total_seconds())
 
             # Now, let's create the violin plot for the trip times.
