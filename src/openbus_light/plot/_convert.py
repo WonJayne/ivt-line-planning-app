@@ -1,3 +1,5 @@
+"""Coordinate conversion helpers used by the plotting routines."""
+
 import math
 
 from numba import njit

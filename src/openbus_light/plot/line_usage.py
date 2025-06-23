@@ -1,3 +1,5 @@
+"""Visualisations of passenger load along each line."""
+
 from typing import Mapping, NamedTuple, Sequence
 
 import numpy as np

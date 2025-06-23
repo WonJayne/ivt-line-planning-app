@@ -1,3 +1,5 @@
+"""Plotting helpers for bus lines and their stations."""
+
 from collections.abc import Collection
 from itertools import chain
 

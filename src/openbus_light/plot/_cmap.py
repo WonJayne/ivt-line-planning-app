@@ -1,3 +1,5 @@
+"""Colour map utilities for the visualisations."""
+
 from collections import defaultdict
 from collections.abc import Collection
 from typing import Generic, Hashable, TypeVar, cast

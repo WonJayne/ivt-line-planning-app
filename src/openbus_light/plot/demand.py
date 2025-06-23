@@ -1,3 +1,5 @@
+"""Functions for visualising demand and station locations."""
+
 from __future__ import annotations
 
 from itertools import chain
