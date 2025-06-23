@@ -30,6 +30,7 @@ def test_parameters() -> LinePlanningParameters:
         maximal_walking_distance=300,
         demand_scaling=0.1,
         maximal_number_of_vehicles=None,
+        solver="cbc",
     )
 
 

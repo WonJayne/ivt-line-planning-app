@@ -34,6 +34,7 @@ def configure_parameters() -> LinePlanningParameters:
         maximal_walking_distance=Meter(500),
         demand_scaling=0.1,
         maximal_number_of_vehicles=None,
+        solver="cbc",
     )
 
 

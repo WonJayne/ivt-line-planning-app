@@ -210,6 +210,7 @@ def _convert_args_to_parameters(args: argparse.Namespace) -> LinePlanningParamet
         maximal_walking_distance=Meter(args.maximal_walking_distance),
         demand_scaling=args.demand_scaling,
         maximal_number_of_vehicles=args.maximal_number_of_vehicles,
+        solver=args.solver,
     )
 
 
@@ -271,6 +272,13 @@ def main() -> None:
         type=int,
         default=None,
         help="Maximal number of vehicles to be used in the line planning problem, None means no limit.",
+    )
+    parser.add_argument(
+        "--solver",
+        type=str,
+        default="cbc",
+        choices=["cbc", "ortools"],
+        help="Which solver backend to use (cbc or ortools).",
     )
 
     parser.add_argument(

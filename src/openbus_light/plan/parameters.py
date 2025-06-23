@@ -19,3 +19,4 @@ class LinePlanningParameters(NamedTuple):
     walking_speed_between_stations: MeterPerSecond
     maximal_walking_distance: Meter
     maximal_number_of_vehicles: None | int
+    solver: str = "cbc"
