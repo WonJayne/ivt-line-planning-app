@@ -19,6 +19,12 @@ You can now install `openbus_light` directly from PyPI:
 pip install openbus-light
 ```
 
+If you wish to use the OR-Tools solver backend, install `ortools` as well:
+
+```bash
+pip install ortools
+```
+
 Alternatively, if you prefer using the provided wheel file:
 
 1. Clone the repository to a suitable location on your computer.

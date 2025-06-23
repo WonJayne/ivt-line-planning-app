@@ -40,7 +40,19 @@ class LPP:
         Solve the mixed integer linear program.
         If it is infeasible, the model is written to a file.
         """
-        self._model.solve(PULP_CBC_CMD(msg=True))
+        solver_name = self._data.parameters.solver.lower()
+        if solver_name == "cbc":
+            solver: pl.LpSolver = PULP_CBC_CMD(msg=True)
+        elif solver_name == "ortools":
+            try:
+                from pulp import HiGHS
+            except Exception as exc:  # pragma: no cover - optional dependency
+                raise ImportError("ortools solver requested but not available") from exc
+            solver = HiGHS(msg=True)
+        else:
+            solver = PULP_CBC_CMD(msg=True)
+
+        self._model.solve(solver)
         if self._model.status == pl.LpStatusInfeasible:
             self._model.writeLP(f"{self.__class__.__name__}.lp")
 
