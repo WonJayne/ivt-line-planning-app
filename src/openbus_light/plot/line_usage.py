@@ -3,7 +3,7 @@ from typing import Mapping, NamedTuple, Sequence
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.container import BarContainer
-from plotly.graph_objs import graph_objs as go
+import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from openbus_light.model import BusLine, Direction, StationName
