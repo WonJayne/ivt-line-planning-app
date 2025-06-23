@@ -34,6 +34,11 @@ class PlanningScenario(NamedTuple):
         :param all_served_station_names: frozenset[str], names of all stations that are served by bus lines
         """
         all_station_names = frozenset(station.name for station in self.stations)
+        if not all_station_names.issuperset(all_served_station_names):
+            unknown_stations = all_served_station_names.difference(all_station_names)
+            raise ValueError(
+                f"Some bus lines stop at stations that are not defined in the scenario: {unknown_stations}"
+            )
         if not all_served_station_names.issuperset(all_station_names):
             not_served_stations = all_station_names.difference(all_served_station_names)
             raise ValueError(f"Some Stations are not served by any line: {not_served_stations}")
@@ -44,9 +49,13 @@ class PlanningScenario(NamedTuple):
             are not within the stations served by lines, raise error.
         :param all_served_station_names: frozenset[str], names of all stations that are served by bus lines
         """
+        all_station_names = frozenset(station.name for station in self.stations)
         all_stations_in_demand = set(
             chain.from_iterable(flows_to.keys() for flows_to in self.demand_matrix.matrix.values())
         ) | set(self.demand_matrix.all_origins())
+        if not all_station_names.issuperset(all_stations_in_demand):
+            unknown_stations = all_stations_in_demand.difference(all_station_names)
+            raise ValueError(f"Some Origins or Destinations are not defined in the scenario: {unknown_stations}")
         if not all_served_station_names.issuperset(all_stations_in_demand):
             not_served_stations = all_stations_in_demand.difference(all_served_station_names)
             raise ValueError(f"Some Origins or Destinations are not served by any line: {not_served_stations}")
@@ -57,9 +66,13 @@ class PlanningScenario(NamedTuple):
             ``walkable_distances`` are not within the stations served by lines, raise error.
         :param all_served_station_names: frozenset[str], names of all stations that are served by bus lines
         """
+        all_station_names = frozenset(station.name for station in self.stations)
         walkable_stations = set(
-            chain.from_iterable((link.ending_at.name, link.ending_at.name) for link in self.walkable_distances)
+            chain.from_iterable((link.starting_at.name, link.ending_at.name) for link in self.walkable_distances)
         )
+        if not all_station_names.issuperset(walkable_stations):
+            unknown_stations = walkable_stations.difference(all_station_names)
+            raise ValueError(f"Some Walking Distances involve stations not defined in the scenario: {unknown_stations}")
         if not all_served_station_names.issuperset(walkable_stations):
             not_served_stations = walkable_stations.difference(all_served_station_names)
             raise ValueError(f"Some Walking Distances are not served by any line: {not_served_stations}")
