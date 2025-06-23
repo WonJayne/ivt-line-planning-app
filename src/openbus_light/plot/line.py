@@ -100,7 +100,7 @@ def plot_lines_in_swiss_coordinates(
                 x=[center_lookup[a][0] + offset for a in _direction.station_sequence],
                 y=[center_lookup[a][1] + offset for a in _direction.station_sequence],
                 mode="lines",
-                line={"color": ColorMap[_line.name] if cmap is not None else "blue", "width": 2},  # type: ignore
+                line={"color": cmap[_line.name] if cmap is not None else "blue", "width": 2},
                 name=f"Line {_line.number} {_direction.name}<br> At {_line.permitted_frequencies}",
                 text=[
                     f"{a} to {b}, Line {_line.number} {_direction.name}" for a, b in _direction.station_names_as_pairs
