@@ -2,6 +2,22 @@ import math
 
 from numba import njit
 
+BERN_LAT_DEG = 46.9524055556  # 169028.66 / 3600
+BERN_LON_DEG = 7.4395833333  # 26782.5 / 3600
+
+LV03_EAST_A0 = 600072.37
+LV03_EAST_A1 = 211455.93
+LV03_EAST_A2 = -10938.51
+LV03_EAST_A3 = -0.36
+LV03_EAST_A4 = -44.54
+
+LV03_NORTH_B0 = 200147.07
+LV03_NORTH_B1 = 308807.95
+LV03_NORTH_B2 = 3745.25
+LV03_NORTH_B3 = 76.63
+LV03_NORTH_B4 = -194.56
+LV03_NORTH_B5 = 119.79
+
 
 def wgs84_to_lv03(lat: float, lon: float) -> tuple[float, float]:
     """
@@ -17,10 +33,8 @@ def wgs84_to_lv03(lat: float, lon: float) -> tuple[float, float]:
 
     # Convert degrees to seconds (arc)
     # Source: swisstopo CH1903 transformation formula
-    bern_lat_deg = 46.9524055556  # 169028.66 / 3600
-    bern_lon_deg = 7.4395833333   # 26782.5 / 3600
-    lat_sec = (lat - bern_lat_deg) * 3600
-    lon_sec = (lon - bern_lon_deg) * 3600
+    lat_sec = (lat - BERN_LAT_DEG) * 3600
+    lon_sec = (lon - BERN_LON_DEG) * 3600
 
     # Auxiliary values (% Bern)
     lat_aux = lat_sec / 10000.0
@@ -28,21 +42,21 @@ def wgs84_to_lv03(lat: float, lon: float) -> tuple[float, float]:
 
     # Calculate easting (y)
     east = (
-        600072.37
-        + 211455.93 * lon_aux
-        - 10938.51 * lon_aux * lat_aux
-        - 0.36 * lon_aux * lat_aux**2
-        - 44.54 * lon_aux**3
+        LV03_EAST_A0
+        + LV03_EAST_A1 * lon_aux
+        + LV03_EAST_A2 * lon_aux * lat_aux
+        + LV03_EAST_A3 * lon_aux * lat_aux**2
+        + LV03_EAST_A4 * lon_aux**3
     )
 
     # Calculate northing (x)
     north = (
-        200147.07
-        + 308807.95 * lat_aux
-        + 3745.25 * lon_aux**2
-        + 76.63 * lat_aux**2
-        - 194.56 * lon_aux**2 * lat_aux
-        + 119.79 * lat_aux**3
+        LV03_NORTH_B0
+        + LV03_NORTH_B1 * lat_aux
+        + LV03_NORTH_B2 * lon_aux**2
+        + LV03_NORTH_B3 * lat_aux**2
+        + LV03_NORTH_B4 * lon_aux**2 * lat_aux
+        + LV03_NORTH_B5 * lat_aux**3
     )
 
     return east, north
