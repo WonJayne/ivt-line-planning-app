@@ -76,10 +76,11 @@ class NodesForOneDirection(NamedTuple):
     transfer_nodes: tuple[LPNNode, ...]
 
 
-@dataclass(frozen=True, slots=True, eq=False, repr=False)
 class LinePlanningNetwork(MutableNetworkABC[LPNNode, LPNLink, LPNNodeType, Activity]):
-    def __init__(self, graph) -> None:
-        super().__init__(graph)
+    __slots__ = ()
+
+    def __init__(self, graph: igraph.Graph) -> None:
+        MutableNetworkABC.__init__(self, graph)
 
     def __eq__(self, other: object) -> bool:
         raise NotImplementedError("Equality comparison is not implemented for LinePlanningNetwork")
@@ -278,7 +279,8 @@ class LinePlanningNetwork(MutableNetworkABC[LPNNode, LPNLink, LPNNodeType, Activ
         """
         network = cls.create_empty()
         network.add_nodes(nodes)
-        network.add_links(((EndNodeIdPair(s_t), link) for s_t, link in links_with_s_t))
+        pairs = [(EndNodeIdPair(s_t), link) for s_t, link in links_with_s_t]
+        network.add_links(pairs)
         return network
 
     @staticmethod
