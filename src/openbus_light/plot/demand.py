@@ -120,8 +120,9 @@ def create_od_plot(od_matrix: DemandMatrix, stations: Collection[Station]) -> go
     # Define steps for the slider
     pax_counts.sort()
     # sample 10 thresholds from the sorted list of passenger counts
+    step = max(1, len(pax_counts) // 11)  # safeguard to avoid zero step when there are few counts
     steps = []
-    for threshold in pax_counts[:: len(pax_counts) // 11][:10]:
+    for threshold in pax_counts[:: step][:10]:
         visible_traces = [passengers >= threshold for _, _, passengers in od_matrix.all_od_pairs()] + [True]
         steps.append({"method": "update", "args": [{"visible": visible_traces}], "label": f"{threshold:.2f}"})
 
