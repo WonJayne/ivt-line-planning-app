@@ -1,3 +1,5 @@
+"""Plotting routines for the line planning network."""
+
 from collections import defaultdict
 from itertools import chain
 from typing import NamedTuple
