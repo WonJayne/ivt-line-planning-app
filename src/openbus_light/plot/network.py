@@ -67,7 +67,7 @@ def plot_network_in_swiss_coordinate_grid(
     )
 
     by_name: dict[str, _Data] = defaultdict(lambda: _Data([], [], [], []))
-    for (s, t), link in zip((es.tuple for es in network.graph.es), network.all_links):
+    for (s, t), link in network.iter_links_with_tuples():
         link: LPNLink  # type: ignore
         name = link.activity.name if link.line_nr is None else f"L:{link.line_nr}"
         start_point, end_point = projected_coordinates[s], projected_coordinates[t]
@@ -154,7 +154,9 @@ def plot_network_usage_in_swiss_coordinates(
     reduced = network.shallow_copy()
     del network
     active_lines = {line.number for line in solution.active_lines}
-    reduced.graph.delete_edges([i for i, link in enumerate(reduced.all_links) if link.line_nr not in active_lines])
+    reduced.underlying_digraph.delete_edges([
+        i for i, link in enumerate(reduced.all_links) if link.line_nr not in active_lines
+    ])
 
     all_passenger_per_link: tuple[PassengersPerLink, ...] = tuple(
         chain.from_iterable(ppl for group in solution.passengers_per_link.values() for ppl in group.values())
@@ -175,7 +177,7 @@ def plot_network_usage_in_swiss_coordinates(
     figure = go.Figure()
     projected_coordinates = _project_and_shift_network_nodes(reduced)
     already_seen_names = set()
-    for (s, t), link in zip((es.tuple for es in reduced.graph.es), reduced.all_links):
+    for (s, t), link in reduced.iter_links_with_tuples():
         link: LPNLink  # type: ignore
         use_a_straight_line = link.activity == Activity.IN_VEHICLE
         start_name, end_name = node_names[s], node_names[t]

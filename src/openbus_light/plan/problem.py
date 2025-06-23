@@ -393,7 +393,7 @@ def _add_flow_conservation_constraints(model: pl.LpProblem, variables: _LPPVaria
     :param data: LPPData, data of the LP problem
     """
     lpp_network = data.network
-    lpp_graph = data.network.graph
+    lpp_graph = data.network.underlying_digraph
     node_incidences = [
         (lpp_graph.incident(i, mode="in"), lpp_graph.incident(i, mode="out")) for i in lpp_graph.vs.indices
     ]
