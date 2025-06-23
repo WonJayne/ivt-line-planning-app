@@ -81,41 +81,20 @@ class NodesForOneDirection(NamedTuple):
 class LinePlanningNetwork(MutableNetworkABC[LPNNode, LPNLink, LPNNodeType, Activity]):
     __slots__ = ()
 
-    def __init__(self, graph: igraph.Graph) -> None:
-        MutableNetworkABC.__init__(self, graph)
-
     def __eq__(self, other: object) -> bool:
         raise NotImplementedError("Equality comparison is not implemented for LinePlanningNetwork")
 
     def __repr__(self) -> str:
         return f"LinePlanningNetwork(graph=(n:{self.n_count}l:{self.l_count}))"
 
-    def __post_init__(self) -> None:
-        """
-        Check whether the graph is directed. If not, raise an error.
-        :return: None
-        """
-        if not self.graph.is_directed():
-            raise RuntimeError(f"graph of {self} must be directed")
 
     def shallow_copy(self) -> LinePlanningNetwork:
         """
         Create a shallow copy of LinePlanningNetwork.
         :return: LinePlanningNetwork, a copy of the instance
         """
-        return LinePlanningNetwork(self.graph.copy())
+        return self.copy()
 
-    @property
-    def graph(self) -> igraph.Graph:
-        return self.underlying_digraph
-
-    @property
-    def all_links(self) -> list[LPNLink]:
-        return super().all_links
-
-    @property
-    def all_nodes(self) -> list[LPNNode]:
-        return super().all_nodes
 
     @property
     def all_node_names(self) -> tuple[NodeName, ...]:
@@ -125,14 +104,14 @@ class LinePlanningNetwork(MutableNetworkABC[LPNNode, LPNLink, LPNNodeType, Activ
         """
         return tuple(self.node_ids)
 
-    def get_link_index(self, source: str, target: str) -> int:
+    def get_link_index(self, source: NodeId, target: NodeId) -> LinkIndex:
         """
         Get the index of an edge between two vertices.
-        :param source: str, the ID or name of the start vertex
-        :param target: str, the ID or name of the end vertex
-        :return: int, index of the link
+        :param source: NodeId, the ID or name of the start vertex
+        :param target: NodeId, the ID or name of the end vertex
+        :return: LinkIndex, index of the link
         """
-        return int(self.link_index_by_source_target(source, target))
+        return self.link_index_by_source_target(source, target)
 
     @classmethod
     def create_from_scenario(cls, scenario: PlanningScenario, period_duration: timedelta) -> LinePlanningNetwork:
@@ -200,21 +179,26 @@ class LinePlanningNetwork(MutableNetworkABC[LPNNode, LPNLink, LPNNodeType, Activ
             average_waiting_time: timedelta = period_duration / frequency * 0.5
             access_link = LPNLink(Activity.ACCESS_LINE, average_waiting_time, line.number, frequency)
             links_to_add.extend(
-                ((access.id, service.id), access_link) for access, service in zip(access_nodes, service_nodes)
+                ((access.node_id, service.node_id), access_link)
+                for access, service in zip(access_nodes, service_nodes)
             )
             links_to_add.extend(
-                ((transfer.id, service.id), access_link) for transfer, service in zip(transfer_nodes, service_nodes)
+                ((transfer.node_id, service.node_id), access_link)
+                for transfer, service in zip(transfer_nodes, service_nodes)
             )
         egress_link = LPNLink(Activity.EGRESS_LINE, timedelta(seconds=60), line.number, None)
         links_to_add.extend(
-            ((service.id, egress.id), egress_link) for service, egress in zip(service_nodes, egress_nodes)
+            ((service.node_id, egress.node_id), egress_link)
+            for service, egress in zip(service_nodes, egress_nodes)
         )
         links_to_add.extend(
-            ((service.id, transfer.id), egress_link) for service, transfer in zip(service_nodes, transfer_nodes)
+            ((service.node_id, transfer.node_id), egress_link)
+            for service, transfer in zip(service_nodes, transfer_nodes)
         )
         service_links = (LPNLink(Activity.IN_VEHICLE, dt, line.number, None) for dt in direction.trip_times)
         links_to_add.extend(
-            ((first.id, second.id), link) for (first, second), link in zip(pairwise(service_nodes), service_links)
+            ((first.node_id, second.node_id), link)
+            for (first, second), link in zip(pairwise(service_nodes), service_links)
         )
         return frozenset(access_nodes + egress_nodes + service_nodes + transfer_nodes), tuple(links_to_add)  # noqa
 
