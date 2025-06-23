@@ -1,6 +1,6 @@
 from collections import defaultdict
 from collections.abc import Collection
-from typing import Generic, Hashable, TypeVar
+from typing import Generic, Hashable, TypeVar, cast
 
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
@@ -23,18 +23,20 @@ def create_colormap(elements: Collection[T], default_color: str | None = None) -
 
     >>> create_colormap(['a', 'b', 'c'])
     {'a': '#63cb5f', 'b': '#65cb5e', 'c': '#69cd5b'}
-    >>> create_colormap(['a', 'b', 'c'], default_color='red')
-    {'a': '#63cb5f', 'b': '#65cb5e', 'c': '#69cd5b'}
+    >>> cmap = create_colormap(['a', 'b', 'c'], default_color='red')
+    >>> cmap['d']
+    'red'
 
     """
     count = len(elements)
     colors = sample_colorscale(px.colors.cyclical.Phase, samplepoints=[i / count for i in range(0, count)])
-    if default_color is not None:
+
+    if default_color is None:
         return ColorMap[T]({element: colors[i] for i, element in enumerate(elements)})
 
-    cmap = defaultdict(lambda: default_color)  # type: ignore
+    cmap: defaultdict[T, str] = defaultdict(lambda: cast(str, default_color))
     cmap.update({element: colors[i] for i, element in enumerate(elements)})
-    return ColorMap[T](cmap)
+    return cast(ColorMap[T], cmap)
 
 
 def create_continuous_colormap(
