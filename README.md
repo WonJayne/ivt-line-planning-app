@@ -16,5 +16,6 @@ This repository accompanies the public transport lectures at **ETH Zurich**. It 
 ## Getting Started
 
 Detailed setup instructions can be found in [docs/setup.md](docs/setup.md). Once your environment is ready, follow the workflow described in [docs/usage.md](docs/usage.md).
+More detailed explanations for each exercise are available in [docs/exercise_3.md](docs/exercise_3.md) and [docs/exercise_4.md](docs/exercise_4.md).
 
 Both documents target students of the Bachelor programme in Civil Engineering and should provide everything you need to reproduce the results on your own machine.
