@@ -45,4 +45,6 @@ def load_scenario(parameters: LinePlanningParameters, paths: ScenarioPaths) -> P
     served_stations = _drop_stations_that_are_not_served(all_stations_in_data, equalised_lines)
     demand_matrix = load_demand_matrix(served_stations, parameters, paths)
     walkable_links = find_all_walkable_distances(served_stations, parameters)
-    return PlanningScenario(demand_matrix, equalised_lines, walkable_links, served_stations)
+    scenario = PlanningScenario(demand_matrix, equalised_lines, walkable_links, served_stations)
+    scenario.check_consistency()
+    return scenario
