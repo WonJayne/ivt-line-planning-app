@@ -16,8 +16,11 @@ def wgs84_to_lv03(lat: float, lon: float) -> tuple[float, float]:
     """
 
     # Convert degrees to seconds (arc)
-    lat_sec = (lat - 169.0 / 36.0) * 3600
-    lon_sec = (lon - 267.0 / 36.0) * 3600
+    # Source: swisstopo CH1903 transformation formula
+    bern_lat_deg = 46.9524055556  # 169028.66 / 3600
+    bern_lon_deg = 7.4395833333   # 26782.5 / 3600
+    lat_sec = (lat - bern_lat_deg) * 3600
+    lon_sec = (lon - bern_lon_deg) * 3600
 
     # Auxiliary values (% Bern)
     lat_aux = lat_sec / 10000.0
