@@ -18,4 +18,4 @@ class PointIn2D(NamedTuple):
         :param other: Any
         :return: bool
         """
-        return self.__hash__() == other.__hash__() if isinstance(PointIn2D, other) else False
+        return self.__hash__() == other.__hash__() if isinstance(other, PointIn2D) else False
