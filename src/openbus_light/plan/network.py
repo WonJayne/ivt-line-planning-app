@@ -64,7 +64,7 @@ class LPNNodeType(BaseNodeType):
 class LPNNode(NodeABC[LPNNodeType]):
     """Node representation used in the line planning network."""
 
-    node_id: NodeName
+    id: NodeName
     coordinates: ThreeDCoordinates
     node_type: LPNNodeType = LPNNodeType.GENERIC
     line_nr: None | LineNr = None
