@@ -1,12 +1,22 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 from enum import IntEnum, unique
-from typing import Collection, NamedTuple, NewType
+from typing import Collection, NamedTuple
 
 import igraph
+from ugraph import (
+    BaseLinkType,
+    BaseNodeType,
+    MutableNetworkABC,
+    NodeABC,
+    NodeId,
+    ThreeDCoordinates,
+    LinkABC,
+    EndNodeIdPair,
+)
 
 from ..model import (
     BusLine,
@@ -21,11 +31,11 @@ from ..model import (
 from ..model.type import StationName
 from ..utils import pairwise
 
-NodeName = NewType("NodeName", str)
+NodeName = NodeId
 
 
 @unique
-class Activity(IntEnum):
+class Activity(BaseLinkType):
     IN_VEHICLE = 1
     WALKING = 2
     ACCESS_LINE = 3
@@ -33,18 +43,30 @@ class Activity(IntEnum):
     TRANSFER = 5
 
 
-class LPNLink(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class LPNLink(LinkABC[Activity]):
     activity: Activity
     duration: timedelta
     line_nr: None | LineNr
     frequency: None | LineFrequency
+    link_type: Activity = field(init=False)
+
+    def __post_init__(self) -> None:  # noqa: D401 - docs inherited
+        object.__setattr__(self, "link_type", self.activity)
 
 
-class LPNNode(NamedTuple):
-    name: NodeName
-    line_nr: None | LineNr
-    direction_name: None | DirectionName
-    coordinates: PointIn2D
+@unique
+class LPNNodeType(BaseNodeType):
+    GENERIC = 1
+
+
+@dataclass(frozen=True, slots=True)
+class LPNNode(NodeABC[LPNNodeType]):
+    id: NodeName
+    coordinates: ThreeDCoordinates
+    node_type: LPNNodeType = LPNNodeType.GENERIC
+    line_nr: None | LineNr = None
+    direction_name: None | DirectionName = None
 
 
 class NodesForOneDirection(NamedTuple):
@@ -54,15 +76,17 @@ class NodesForOneDirection(NamedTuple):
     transfer_nodes: tuple[LPNNode, ...]
 
 
-@dataclass(frozen=True, slots=True, eq=False, repr=False)
-class LinePlanningNetwork:
-    graph: igraph.Graph
+class LinePlanningNetwork(MutableNetworkABC[LPNNode, LPNLink, LPNNodeType, Activity]):
+    __slots__ = ()
+
+    def __init__(self, graph: igraph.Graph) -> None:
+        MutableNetworkABC.__init__(self, graph)
 
     def __eq__(self, other: object) -> bool:
         raise NotImplementedError("Equality comparison is not implemented for LinePlanningNetwork")
 
     def __repr__(self) -> str:
-        return f"LinePlanningNetwork(graph=(n:{self.graph.vcount()}l:{self.graph.ecount()})"
+        return f"LinePlanningNetwork(graph=(n:{self.n_count}l:{self.l_count}))"
 
     def __post_init__(self) -> None:
         """
@@ -80,20 +104,16 @@ class LinePlanningNetwork:
         return LinePlanningNetwork(self.graph.copy())
 
     @property
+    def graph(self) -> igraph.Graph:
+        return self.underlying_digraph
+
+    @property
     def all_links(self) -> list[LPNLink]:
-        """
-        Access all the links from the network graph.
-        :return: list[LPNLink], a list of LPNLink
-        """
-        return self.graph.es[self._link_key()]
+        return super().all_links
 
     @property
     def all_nodes(self) -> list[LPNNode]:
-        """
-        Access all the nodes from the network graph.
-        :return: list[LPNNode], a list of LPNNode
-        """
-        return self.graph.vs[self._node_key()]
+        return super().all_nodes
 
     @property
     def all_node_names(self) -> tuple[NodeName, ...]:
@@ -101,7 +121,7 @@ class LinePlanningNetwork:
         Get the names of all the nodes.
         :return: tuple[NodeName, ...]
         """
-        return self.graph.vs["name"]
+        return tuple(self.node_ids)
 
     def get_link_index(self, source: str, target: str) -> int:
         """
@@ -110,23 +130,7 @@ class LinePlanningNetwork:
         :param target: str, the ID or name of the end vertex
         :return: int, index of the link
         """
-        return self.graph.get_eid(source, target)
-
-    @classmethod
-    def _node_key(cls) -> str:
-        """
-        Get the name of the node.
-        :return: str, name of the node
-        """
-        return LPNNode.__name__
-
-    @classmethod
-    def _link_key(cls) -> str:
-        """
-        Get the name of the link.
-        :return: str, name of the link
-        """
-        return LPNLink.__name__
+        return int(self.link_index_by_source_target(source, target))
 
     @classmethod
     def create_from_scenario(cls, scenario: PlanningScenario, period_duration: timedelta) -> LinePlanningNetwork:
@@ -152,7 +156,7 @@ class LinePlanningNetwork:
         for walkable_distance in scenario.walkable_distances:
             links_to_add.extend(cls._create_links_for_walkable_distances(walkable_distance))
 
-        return cls(cls._create_underlying_digraph(nodes_to_add, links_to_add))
+        return cls._create_underlying_digraph(nodes_to_add, links_to_add)
 
     @classmethod
     def _create_links_for_walkable_distances(
@@ -194,21 +198,21 @@ class LinePlanningNetwork:
             average_waiting_time: timedelta = period_duration / frequency * 0.5
             access_link = LPNLink(Activity.ACCESS_LINE, average_waiting_time, line.number, frequency)
             links_to_add.extend(
-                ((access.name, service.name), access_link) for access, service in zip(access_nodes, service_nodes)
+                ((access.id, service.id), access_link) for access, service in zip(access_nodes, service_nodes)
             )
             links_to_add.extend(
-                ((transfer.name, service.name), access_link) for transfer, service in zip(transfer_nodes, service_nodes)
+                ((transfer.id, service.id), access_link) for transfer, service in zip(transfer_nodes, service_nodes)
             )
         egress_link = LPNLink(Activity.EGRESS_LINE, timedelta(seconds=60), line.number, None)
         links_to_add.extend(
-            ((service.name, egress.name), egress_link) for service, egress in zip(service_nodes, egress_nodes)
+            ((service.id, egress.id), egress_link) for service, egress in zip(service_nodes, egress_nodes)
         )
         links_to_add.extend(
-            ((service.name, transfer.name), egress_link) for service, transfer in zip(service_nodes, transfer_nodes)
+            ((service.id, transfer.id), egress_link) for service, transfer in zip(service_nodes, transfer_nodes)
         )
         service_links = (LPNLink(Activity.IN_VEHICLE, dt, line.number, None) for dt in direction.trip_times)
         links_to_add.extend(
-            ((first.name, second.name), link) for (first, second), link in zip(pairwise(service_nodes), service_links)
+            ((first.id, second.id), link) for (first, second), link in zip(pairwise(service_nodes), service_links)
         )
         return frozenset(access_nodes + egress_nodes + service_nodes + transfer_nodes), tuple(links_to_add)  # noqa
 
@@ -225,25 +229,38 @@ class LinePlanningNetwork:
         """
         station_names = direction.station_sequence
         access_nodes = tuple(
-            LPNNode(cls.access_node_name_from_station_name(station_name), None, None, station_coordinates[station_name])
+            LPNNode(
+                cls.access_node_name_from_station_name(station_name),
+                ThreeDCoordinates(station_coordinates[station_name].lat, station_coordinates[station_name].long, 0),
+                line_nr=None,
+                direction_name=None,
+            )
             for station_name in station_names
         )
         egress_nodes = tuple(
-            LPNNode(cls.egress_node_name_from_station_name(station_name), None, None, station_coordinates[station_name])
+            LPNNode(
+                cls.egress_node_name_from_station_name(station_name),
+                ThreeDCoordinates(station_coordinates[station_name].lat, station_coordinates[station_name].long, 0),
+                line_nr=None,
+                direction_name=None,
+            )
             for station_name in station_names
         )
         transfer_nodes = tuple(
             LPNNode(
-                cls.transfer_node_name_from_station_name(station_name), None, None, station_coordinates[station_name]
+                cls.transfer_node_name_from_station_name(station_name),
+                ThreeDCoordinates(station_coordinates[station_name].lat, station_coordinates[station_name].long, 0),
+                line_nr=None,
+                direction_name=None,
             )
             for station_name in station_names
         )
         service_nodes = tuple(
             LPNNode(
                 cls.create_line_node_name(station_name, line, direction),
-                line.number,
-                direction.name,
-                station_coordinates[station_name],
+                ThreeDCoordinates(station_coordinates[station_name].lat, station_coordinates[station_name].long, 0),
+                line_nr=line.number,
+                direction_name=direction.name,
             )
             for station_name in station_names
         )
@@ -253,21 +270,18 @@ class LinePlanningNetwork:
     @classmethod
     def _create_underlying_digraph(
         cls, nodes: Collection[LPNNode], links_with_s_t: Collection[tuple[tuple[NodeName, NodeName], LPNLink]]
-    ) -> igraph.Graph:
+    ) -> LinePlanningNetwork:
         """
         Create a directed graph based on the nodes and links.
         :param nodes: Collection[LPNNode]
         :param links_with_s_t: Collection[tuple[tuple[str, str], LPNLink]]
-        :return: igraph.Graph, the underlying digraph
+        :return: LinePlanningNetwork, the underlying digraph as network
         """
-        graph = igraph.Graph(directed=True)
-        graph.add_vertices(
-            len(nodes), attributes={"name": [node.name for node in nodes], f"{cls._node_key()}": list(nodes)}
-        )
-        graph.add_edges((s, t) for (s, t), _ in links_with_s_t)
-        for edge_index, (_, link) in enumerate(links_with_s_t):
-            graph.es[edge_index][cls._link_key()] = link
-        return graph
+        network = cls.create_empty()
+        network.add_nodes(nodes)
+        pairs = [(EndNodeIdPair(s_t), link) for s_t, link in links_with_s_t]
+        network.add_links(pairs)
+        return network
 
     @staticmethod
     def access_node_name_from_station_name(station_name: StationName) -> NodeName:
