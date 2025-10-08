@@ -9,36 +9,36 @@ specification.
 
 * Every `Station.name` is mapped to a numeric identifier by sorting the names alphabetically and
   assigning consecutive numbers starting at 1. The resulting table is written to `stops.csv` with the
-  columns `stop_id`, `stop_name`, `latitude`, and `longitude` using the values from
-  `Station.center_position`.
+  columns `stop-id`, `stop-name`, `x`, and `y`. Coordinates are converted from WGS84 to the Swiss LV03
+  system using the same transformation as the network plotting helpers to match the LinTim
+  expectation of working in Swiss coordinates.
 
 ## Network edges
 
 * For each `Direction.trip_time_by_pair()` the exporter creates a directed record in `edges.csv` with
-  the origin identifier, destination identifier, travel time in seconds, and a straight-line distance
-  derived from the station coordinates. The `mode` column contains `vehicle` for bus movements and
-  `walk` for walkable links. When multiple lines share the same connection, the fastest travel time is
-  preserved.
+  the origin identifier, destination identifier, and the straight-line distance derived from the
+  station coordinates (in kilometres). The `lower-bound` and `upper-bound` columns are left open (0
+  and 999) so downstream experiments can apply their own capacity constraints. When multiple lines
+  share the same connection, the fastest travel time is used to derive the recorded distance.
 
 ## Line descriptions
 
-* `line-concept.csv` contains one row per `(BusLine.number, Direction.name)` pair. The identifiers are
-  deterministic strings of the form `LINE_<number>_<direction>` with non-alphanumeric characters
-  replaced by underscores. Each row records the vehicle capacity and the permitted frequencies. The
-  ordered stop sequence for every direction is stored in `line-stop.csv` with 1-based indices.
+* `lines.csv` contains one row per line direction (property `line`). The `line_group` column is a
+  sequential identifier and `sequence` stores the ordered stop identifiers as a comma-separated list.
 
-* Walking links can be exported as additional lines via the CLI flag `--walks-as-lines`. In that mode
-  the exporter writes synthetic line identifiers `WALK_<originId>_<destinationId>` and stores the two
-  involved stops in `line-stop.csv`.
+* Walking links can be exported as additional line entries via the CLI flag `--walks-as-lines`. In
+  that mode the exporter appends each walk as a two-stop sequence using the same deterministic stop
+  identifiers as the rest of the files.
 
 ## Demand and footpaths
 
 * Passenger demand is serialised to `od.csv` by converting `DemandMatrix.all_od_pairs()` into origin
   and destination identifiers. Demand values are written without modification.
 
-* When the default footpath representation is used, the exporter writes `footpaths.csv`. Each row
-  contains the origin and destination identifiers, the walking time in seconds, and the straight-line
-  distance calculated for the corresponding stations.
+* Walking links are always written to `walking_distances.csv`. The file stores the origin and
+  destination identifiers, the walking time in seconds, and flags every row as directed. These values
+  align with the "Edge Walking" specification in the LinTim input documentation (see Section 8.3.9 of
+  the official manual).
 
 These mappings ensure the generated CSV files follow the LinTim expectations while staying faithful
 to the structure of the `PlanningScenario`. If new LinTim tables need to be filled in the future,

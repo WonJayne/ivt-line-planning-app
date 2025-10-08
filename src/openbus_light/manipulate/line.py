@@ -9,7 +9,11 @@ from pathlib import Path
 from statistics import mean
 from typing import Any, Sequence
 
-from tqdm import tqdm
+try:  # pragma: no cover - optional dependency
+    from tqdm import tqdm
+except ModuleNotFoundError:  # pragma: no cover
+    def tqdm(iterable, **_kwargs):  # type: ignore[misc]
+        return iterable
 
 from ..model import BusLine, Direction, DirectionName, LineFrequency, LineName, LineNr, VehicleCapacity
 from ..model.type import StationName

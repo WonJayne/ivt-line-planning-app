@@ -8,7 +8,10 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Collection, Sequence
 
-import numpy as np
+try:  # pragma: no cover - optional dependency
+    import numpy as np
+except ModuleNotFoundError:  # pragma: no cover
+    np = None  # type: ignore[assignment]
 
 try:  # pragma: no cover - optional dependency
     import pandas as pd
@@ -85,7 +88,10 @@ def _map_district_to_nearest_station(
             min(calculate_distance_in_m(district_point.position, point) for point in station.points)
             for station in stations
         )
-        nearest_station_index: int = np.argmin(distances)  # type:ignore
+        if np is not None:
+            nearest_station_index: int = int(np.argmin(distances))  # type: ignore[arg-type]
+        else:
+            nearest_station_index = min(range(len(distances)), key=lambda index: distances[index])
         if distances[nearest_station_index] < association_radius:
             nearest_stop = stations[nearest_station_index]
             nearest_stop.district_points.append(district_point)

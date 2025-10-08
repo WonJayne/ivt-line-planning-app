@@ -1,7 +1,11 @@
 from dataclasses import dataclass
 from functools import cached_property
+from statistics import fmean
 
-import numpy as np
+try:  # pragma: no cover - optional dependency
+    import numpy as np
+except ModuleNotFoundError:  # pragma: no cover
+    np = None  # type: ignore[assignment]
 
 from .district import DistrictPoint
 from .point import PointIn2D
@@ -26,7 +30,13 @@ class Station:
         Get the geometry of center position of the station.
         :return: PointIn2D, geometry of the center point
         """
-        return PointIn2D(
-            lat=np.nanmean(tuple(p.lat for p in self.points)),  # type: ignore
-            long=np.nanmean(tuple(p.long for p in self.points)),  # type: ignore
-        )
+        latitudes = tuple(point.lat for point in self.points)
+        longitudes = tuple(point.long for point in self.points)
+
+        if np is not None:  # pragma: no branch - simple guard
+            return PointIn2D(
+                lat=float(np.nanmean(latitudes)),  # type: ignore[arg-type]
+                long=float(np.nanmean(longitudes)),  # type: ignore[arg-type]
+            )
+
+        return PointIn2D(lat=fmean(latitudes), long=fmean(longitudes))

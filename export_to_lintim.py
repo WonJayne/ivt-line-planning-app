@@ -71,7 +71,7 @@ def main() -> None:
     parser.add_argument(
         "--walks-as-lines",
         action="store_true",
-        help="Represent walking connections as synthetic lines instead of footpaths.csv.",
+        help="Also represent walking connections as synthetic line entries in lines.csv.",
     )
     args = parser.parse_args()
 
