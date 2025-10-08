@@ -5,7 +5,7 @@ from itertools import combinations
 from typing import Collection
 
 from ..model import Station, WalkableDistance
-from ..plan import LinePlanningParameters
+from ..plan.parameters import LinePlanningParameters
 from .point import calculate_distance_in_m
 
 

@@ -1,17 +1,23 @@
 from __future__ import annotations
 
+import csv
 import uuid
 from collections import Counter
 from itertools import chain, product
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Collection, Sequence
 
 import numpy as np
-import pandas as pd
+
+try:  # pragma: no cover - optional dependency
+    import pandas as pd
+except ModuleNotFoundError:  # pragma: no cover - executed when pandas is unavailable
+    pd = None
 
 from ..model import DemandMatrix, DistrictPoint, PointIn2D, Station
 from ..model.type import DistrictName, DistrictPointId, Meter, StationName
-from ..plan import LinePlanningParameters
+from ..plan.parameters import LinePlanningParameters
 from ..utils import skip_one_line_in_file
 from .paths import ScenarioPaths
 from .point import calculate_distance_in_m
@@ -25,7 +31,7 @@ def _load_all_district_points(path_to_demand_district_points: Path) -> tuple[Dis
     """
     with open(path_to_demand_district_points, encoding="utf-8") as file:
         skip_one_line_in_file(file)
-        raw_demand_points = pd.read_csv(file, sep=",", encoding="utf-8", dtype=str)
+        raw_rows = tuple(_read_rows(file))
 
     return tuple(
         DistrictPoint(
@@ -33,8 +39,8 @@ def _load_all_district_points(path_to_demand_district_points: Path) -> tuple[Dis
             position=PointIn2D(lat=float(row.YCOORD), long=float(row.XCOORD)),
             id=DistrictPointId(str(uuid.uuid4())),
         )
-        for row in raw_demand_points.itertuples(index=False)
-        if not pd.isnull(row.BEZIRKE)
+        for row in raw_rows
+        if not _is_null(row.BEZIRKE)
     )
 
 
@@ -160,8 +166,21 @@ def _load_all_demanded_relations(path_to_demand: Path) -> dict[tuple[DistrictNam
     """
     with open(path_to_demand, encoding="utf-8") as file:
         skip_one_line_in_file(file)
-        raw_demand = pd.read_csv(file, sep=",", encoding="utf-8", dtype=str)
         return {
             (DistrictName(relation.FROM), DistrictName(relation.TO)): round(float(relation.DEMAND) * 1.87, 4)
-            for relation in raw_demand.itertuples(index=False)
+            for relation in _read_rows(file)
         }
+
+
+def _read_rows(file) -> tuple[SimpleNamespace, ...]:
+    if pd is not None:
+        frame = pd.read_csv(file, sep=",", encoding="utf-8", dtype=str)
+        return tuple(frame.itertuples(index=False))
+    reader = csv.DictReader(file, delimiter=",")
+    return tuple(SimpleNamespace(**row) for row in reader)
+
+
+def _is_null(value: object) -> bool:
+    if pd is not None:
+        return bool(pd.isnull(value))
+    return value is None or str(value).strip() == ""
