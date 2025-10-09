@@ -1,6 +1,10 @@
-from typing import NamedTuple
+from types import SimpleNamespace
+from typing import Any, NamedTuple
 
-import pandas as pd
+try:  # pragma: no cover - optional dependency
+    import pandas as pd
+except ModuleNotFoundError:  # pragma: no cover - executed when pandas is unavailable
+    pd = SimpleNamespace(DataFrame=Any)  # type: ignore[assignment]
 
 from openbus_light.model.type import CirculationId, DirectionName, LineName, StationName, TripNr
 

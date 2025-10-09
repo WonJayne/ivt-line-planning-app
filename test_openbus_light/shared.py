@@ -1,9 +1,15 @@
 from datetime import timedelta
 from functools import lru_cache
 
-from exercise_3 import get_paths
+from _constants import (
+    MEASUREMENTS,
+    PATH_TO_DEMAND,
+    PATH_TO_DEMAND_DISTRICT_POINTS,
+    PATH_TO_LINE_DATA,
+    PATH_TO_STATIONS,
+)
 
-from openbus_light.manipulate import load_scenario
+from openbus_light.manipulate import ScenarioPaths, load_scenario
 from openbus_light.model import LineFrequency, MeterPerSecond, PlanningScenario
 from openbus_light.plan import LinePlanningParameters
 
@@ -37,3 +43,13 @@ def test_parameters() -> LinePlanningParameters:
 @lru_cache(maxsize=1)
 def cached_scenario() -> PlanningScenario:
     return load_scenario(test_parameters(), get_paths())
+def get_paths() -> ScenarioPaths:
+    return ScenarioPaths(
+        to_lines=PATH_TO_LINE_DATA,
+        to_stations=PATH_TO_STATIONS,
+        to_districts=PATH_TO_DEMAND_DISTRICT_POINTS,
+        to_demand=PATH_TO_DEMAND,
+        to_measurements=MEASUREMENTS,
+    )
+
+

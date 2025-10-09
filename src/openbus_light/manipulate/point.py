@@ -1,6 +1,13 @@
 from math import atan2, cos, radians, sin, sqrt
 
-from numba import njit
+try:  # pragma: no cover - optional dependency
+    from numba import njit
+except ModuleNotFoundError:  # pragma: no cover
+    def njit(*_args, **_kwargs):  # type: ignore[no-redef]
+        def decorator(function):
+            return function
+
+        return decorator
 
 from ..model import PointIn2D
 
